@@ -1,0 +1,31 @@
+{
+  "name": "eazika-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-voy/eazika-backend.git"
+  },
+  "keywords": [
+    "eazika"
+  ],
+  "author": "devvoy",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dev-voy/eazika-backend/issues"
+  },
+  "homepage": "https://github.com/dev-voy/eazika-backend#readme",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
