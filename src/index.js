@@ -1,15 +1,6 @@
-import express from "express";
+import { app } from "./app.js";
+import { env } from "./config/index.js";
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-app.get("/", (req, res) => {
-  res.json({
-    message: "Welcome to the Eazika backend API!",
-    status: "success",
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`⚙️ Server is running at port: ${PORT}`);
+app.listen(env.port, () => {
+  console.log(`⚙️ Server is running at port : ${env.port}`);
 });
