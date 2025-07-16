@@ -18,4 +18,10 @@ app.get("/", (_, res) =>
 
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 
+// Importing routes
+import userRoute from "./routes/user.route.js";
+
+// Using routes
+app.use("/api/v1/user", userRoute);
+
 export { app };
