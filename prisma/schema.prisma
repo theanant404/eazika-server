@@ -1,21 +1,235 @@
-generator client {
-  provider = "prisma-client-js"
-}
+// Prisma Schema for Eazika MVP (Optimized for Scalability)
+// Simplified for MVP without Coupons, using JSONB where appropriate
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Enums
+enum Role {
+  CUSTOMER
+  SHOPKEEPER
+  DELIVERY_BOY
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURNED
+}
+
+enum PaymentMethod {
+  COD
+  UPI
+  CARD
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PICKED_UP
+  REFUNDED
+}
+
+// Core User Table
 model User {
-  id           String   @id @default(cuid())
-  firstName    String   @db.VarChar(100)
-  lastName     String?  @db.VarChar(100)
-  email        String   @unique @db.VarChar(100)
-  phone        String?  @unique @db.VarChar(20)
-  password     String?
-  imageUrl     String?
-  refreshToken String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  id              String     @id @default(uuid())
+  phone           String     @unique
+  name            String
+  email           String?    @unique
+  password        String
+  role            Role
+  profileImage    String?    // stores the image URL
+  isActive        Boolean    @default(true)
+  isVerified      Boolean    @default(false)
+  deviceTokens    String[]
+  metadata        Json       @default("{}") // Flexible additional data
+
+  // Relations
+  addresses       Address[]
+  orders          Order[]
+  cartItems       CartItem[]
+  customerProfile CustomerProfile?
+  shopkeeperProfile ShopkeeperProfile?
+  deliveryProfile DeliveryProfile?
+  shops           Shop[]     // reverse relation with Shop.owner
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  lastLogin       DateTime?
+}
+
+// Customer Profile
+model CustomerProfile {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loyaltyPoints Int   @default(0)
+  metadata  Json     @default("{}")
+}
+
+// Shopkeeper Profile
+model ShopkeeperProfile {
+  userId         String   @id
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName   String
+  kycStatus      String   @default("PENDING")
+  kycDocuments   Json     @default("[]")
+  commissionRate Decimal  @default(5.00)
+  rating         Decimal  @default(0)
+  totalOrders    Int      @default(0)
+  metadata       Json     @default("{}")
+}
+
+// Delivery Profile
+model DeliveryProfile {
+  userId         String   @id
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType    String?
+  vehicleNumber  String?
+  isAvailable    Boolean  @default(true)
+  deliveryRadius Int      @default(5)
+  rating         Decimal  @default(0)
+  totalDeliveries Int     @default(0)
+  metadata       Json     @default("{}")
+}
+
+// Address Table
+model Address {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  label       String?   // Home/Work
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  pincode     String
+  geoLocation Json      @default("{}") // Stores lat/lng as JSONB
+  isDefault   Boolean   @default(false)
+}
+
+// Shops
+model Shop {
+  id          String        @id @default(uuid())
+  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  name        String
+  description String?
+  address     Json          @default("{}") // Complete address and location data
+  contact     Json          @default("{}") // phone, email
+  images      String[]
+  rating      Float         @default(0)
+  isActive    Boolean       @default(true)
+  metadata    Json          @default("{}")
+
+  products    ShopProduct[]
+  orders      Order[]
+  createdAt   DateTime      @default(now())
+}
+
+// Global Product Catalog
+model GlobalProduct {
+  id          String         @id @default(uuid())
+  name        String
+  brand       String?
+  category    String
+  images      String[]       @default([])
+  tags        String[]       @default([])
+  metadata    Json           @default("{}") // Flexible attributes like nutrition info
+
+  shopProducts ShopProduct[] // reverse relation with ShopProduct
+}
+
+// Shop-specific product mapping
+model ShopProduct {
+  id              String        @id @default(uuid())
+  shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId          String
+  globalProduct   GlobalProduct @relation(fields: [globalProductId], references: [id], onDelete: Cascade)
+  globalProductId String
+  price           Decimal
+  stockQuantity   Int           @default(0)
+  discountPercent Int           @default(0)
+  metadata        Json          @default("{}")
+  isActive        Boolean       @default(true)
+
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+}
+
+// Cart
+model CartItem {
+  id            String      @id @default(uuid())
+  customer      User        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId    String
+  shopProduct   ShopProduct @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
+  shopProductId String
+  quantity      Int         @default(1)
+  addedAt       DateTime    @default(now())
+
+  @@unique([customerId, shopProductId])
+}
+
+// Orders
+model Order {
+  id             String         @id @default(uuid())
+  orderNumber    String         @unique
+  customer       User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId     String
+  shop           Shop           @relation(fields: [shopId], references: [id])
+  shopId         String
+
+  status         OrderStatus    @default(PENDING)
+  pricing        Json           @default("{}") // subtotal, deliveryFee, totalAmount
+  payment        Json           @default("{}") // {method, status, paymentId}
+  deliveryInfo   Json           @default("{}") // address snapshot, ETA, OTP
+
+  orderItems     OrderItem[]
+  returnRequests ReturnRequest[]
+  createdAt      DateTime       @default(now())
+  deliveredAt    DateTime?
+}
+
+model OrderItem {
+  id            String      @id @default(uuid())
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String
+  shopProduct   ShopProduct @relation(fields: [shopProductId], references: [id])
+  shopProductId String
+  quantity      Int
+  unitPrice     Decimal
+  totalPrice    Decimal
+  snapshot      Json        @default("{}") // product snapshot
+}
+
+// Order Returns
+model ReturnRequest {
+  id          String       @id @default(uuid())
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  reason      String
+  status      ReturnStatus @default(REQUESTED)
+  refundAmount Decimal      @default(0)
+  metadata    Json         @default("{}")
+  createdAt   DateTime     @default(now())
 }

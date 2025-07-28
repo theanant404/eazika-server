@@ -19,9 +19,9 @@ app.get("/", (_, res) =>
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 
 // Importing routes
-import userRoute from "./routes/user.route.js";
+import userRoute from "./routes/auth.route.js";
 
 // Using routes
-app.use("/api/v1/user", userRoute);
+app.use("/api/v1/auth", userRoute);
 
 export { app };
