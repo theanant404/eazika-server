@@ -19,7 +19,7 @@ app.get("/", (_, res) =>
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 
 // Routing
-import routes from "./routes/auth.route.js";
+import routes from "./routes/index.js";
 app.use("/api/v1", routes);
 
 export { app };
