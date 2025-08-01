@@ -1,7 +1,8 @@
 import bcrypt from "bcrypt";
+import { google } from "googleapis";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError, ApiResponse } from "../utils/apiHandler.js";
-import prisma from "../config/dbConfig.js";
+import { prisma, env } from "../config/index.js";
 import { registeredUserSchema } from "../validations/auth.validation.js";
 
 import {
@@ -125,4 +126,86 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   );
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+// Login with Google
+const loginWithGoogle = asyncHandler(async (req, res) => {
+  const oauth2Client = new google.auth.OAuth2(
+    env.google_client_id,
+    env.google_client_secret,
+    "postmessage" // Replace with your actual redirect URI
+  );
+
+  const code = req.query.code;
+  if (!code) throw new ApiError(400, "Google Authorization code is required");
+
+  const googleRes = await oauth2Client.getToken(code);
+  // console.log("Google Response:", googleRes.tokens);
+  oauth2Client.setCredentials(googleRes.tokens);
+  const userRes = await fetch(
+    `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${googleRes.tokens.access_token}`
+  );
+  if (!userRes.ok)
+    throw new ApiError(500, "Failed to fetch user data from Google");
+
+  const userData = await userRes.json();
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: userData.email },
+  });
+
+  if (!existingUser) {
+    const newUser = await prisma.user.create({
+      data: {
+        name: userData.name,
+        email: userData.email,
+        phone: null, // Google doesn't provide phone number
+        role: "CUSTOMER",
+        profileImage: userData.picture || null,
+      },
+    });
+    if (!newUser) throw new ApiError(500, "Failed to create user");
+
+    return res.status(201).json(
+      new ApiResponse(201, "User registered successfully via Google", {
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: newUser.role,
+          profileImage: newUser.profileImage,
+        },
+        accessToken: await generateAccessToken(newUser.id, newUser.role),
+        refreshToken: await generateRefreshToken(newUser.id, newUser.role),
+      })
+    );
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Login successful via Google", {
+      user: {
+        id: existingUser.id,
+        name: existingUser.name,
+        email: existingUser.email,
+        phone: existingUser.phone,
+        role: existingUser.role,
+        profileImage: existingUser.profileImage,
+      },
+      accessToken: await generateAccessToken(
+        existingUser.id,
+        existingUser.role
+      ),
+      refreshToken: await generateRefreshToken(
+        existingUser.id,
+        existingUser.role
+      ),
+    })
+  );
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  loginWithGoogle,
+};
