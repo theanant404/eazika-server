@@ -10,7 +10,7 @@ const registeredUserSchema = z.object({
   email: z
     .string()
     .email("Invalid email address")
-    .optional(), // Email is optional in Prisma
+    .optional(),
   password: z
     .string()
     .min(6, "Password is required and must be at least 6 characters")
@@ -18,6 +18,8 @@ const registeredUserSchema = z.object({
   phone: z
     .string()
     .regex(/^\d{10,13}$/, "Phone number must be between 10 and 13 digits"),
+  role: z.enum(["CUSTOMER", "SHOPKEEPER", "DELIVERY_BOY", "ADMIN"])
+    .default("CUSTOMER"),  // Makes role optional with default value
   profileImage: z
     .string()
     .url("Must be a valid URL")
