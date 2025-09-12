@@ -28,28 +28,91 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(payload.password, 10);
 
-  const newUser = await prisma.user.create({
-    data: {
-      name: payload.name,
-      email: payload.email || null,
-      phone: payload.phone,
-      password: hashedPassword,
-      role: payload.role || "CUSTOMER",
-      profileImage: payload.profileImage || null,
-    },
+  // Use transaction to ensure atomicity (both user and profile are created together)
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Create the user
+    const newUser = await tx.user.create({
+      data: {
+        name: payload.name,
+        email: payload.email || null,
+        phone: payload.phone,
+        password: hashedPassword,
+        role: payload.role,
+        profileImage: payload.profileImage || null,
+      },
+    });
+
+    // 2. Create role-specific profile based on user role
+    switch (newUser.role) {
+      case 'CUSTOMER':
+        await tx.customerProfile.create({
+          data: {
+            userId: newUser.id,
+            metadata: {
+              profileCompleted: false,
+              registrationDate: new Date().toISOString()
+            }
+          }
+        });
+        break;
+
+      case 'SHOPKEEPER':
+        await tx.shopkeeperProfile.create({
+          data: {
+            userId: newUser.id,
+            businessName: payload.businessName || '', // Empty initially
+            kycStatus: 'PENDING',
+            kycDocuments: [],
+            commissionRate: 5.00,
+            rating: 0,
+            totalOrders: 0,
+            metadata: {
+              profileCompleted: false,
+              registrationDate: new Date().toISOString()
+            },
+            bankDetails: {}
+          }
+        });
+        break;
+
+      case 'DELIVERY_BOY':
+        await tx.deliveryProfile.create({
+          data: {
+            userId: newUser.id,
+            vehicleType: payload.vehicleType || null,
+            vehicleNumber: payload.vehicleNumber || null,
+            isAvailable: true,
+            deliveryRadius: 5,
+            rating: 0,
+            totalDeliveries: 0,
+            metadata: {
+              profileCompleted: false,
+              registrationDate: new Date().toISOString()
+            }
+          }
+        });
+        break;
+
+      default:
+        throw new ApiError(400, "Invalid user role");
+    }
+
+    return newUser;
   });
 
   return res.status(201).json(
     new ApiResponse(201, "User registered successfully", {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      phone: newUser.phone,
-      role: newUser.role,
-      profileImage: newUser.profileImage,
+      id: result.id,
+      name: result.name,
+      email: result.email,
+      phone: result.phone,
+      role: result.role,
+      profileImage: result.profileImage,
+      nextStep: "complete_profile" 
     })
   );
 });
+
 
 /**
  * Login User
