@@ -89,7 +89,9 @@ export const createOrder = asyncHandler(async (req, res) => {
           productBrand: product.globalProduct.brand,
           productImage: product.globalProduct.images[0] || null,
           originalPrice: product.price,
-          discountPercent: product.discountPercent
+          discountPercent: product.discountPercent,
+          isReturnable: product.isReturnable,
+          returnPeriodDays: product.returnPeriodDays
         }
       });
     }
