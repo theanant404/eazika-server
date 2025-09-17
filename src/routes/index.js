@@ -9,6 +9,9 @@ import cartRouter from "./cart.route.js";
 import orderRouter from "./order.route.js";
 import deliveryBoyRouter from './deliveryBoy.route.js';
 import deliveryRouter from './delivery.route.js';
+import orderReturnRouter from "./orderReturn.route.js";
+import productReviewRouter from "./productReview.route.js";
+import adminRouter from './admin.route.js';
 
 const router = Router();
 
@@ -22,5 +25,8 @@ router.use("/cart", cartRouter);
 router.use("/orders", orderRouter);
 router.use('/deliveryBoy', deliveryBoyRouter);
 router.use('/delivery', deliveryRouter);
+router.use("/returns", orderReturnRouter);
+router.use("/reviews", productReviewRouter);
+router.use('/admin', adminRouter);
 
 export default router;
