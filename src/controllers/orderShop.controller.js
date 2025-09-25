@@ -99,7 +99,7 @@ export const acceptOrder = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "Order accepted successfully", updatedOrder));
+  res.json(new ApiResponse(200,  updatedOrder, "Order accepted successfully"));
 });
 
 // Reject order
@@ -148,7 +148,7 @@ export const rejectOrder = asyncHandler(async (req, res) => {
     return updated;
   });
 
-  res.json(new ApiResponse(200, "Order rejected successfully", updatedOrder));
+  res.json(new ApiResponse(200,  updatedOrder, "Order rejected successfully"));
 });
 
 // Mark order as ready for pickup
@@ -178,7 +178,7 @@ export const markOrderReady = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "Order marked as ready", updatedOrder));
+  res.json(new ApiResponse(200, updatedOrder, "Order marked as ready"));
 });
 
 // Get order statistics for shop
@@ -264,5 +264,5 @@ export const getOrderStats = asyncHandler(async (req, res) => {
     }
   };
 
-  res.json(new ApiResponse(200, "Order statistics retrieved successfully", stats));
+  res.json(new ApiResponse(200, stats, "Order statistics retrieved successfully"));
 });

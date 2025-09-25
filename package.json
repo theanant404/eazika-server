@@ -12,6 +12,9 @@
     "type": "git",
     "url": "git+https://github.com/dev-voy/eazika-backend.git"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "keywords": [
     "eazika"
   ],

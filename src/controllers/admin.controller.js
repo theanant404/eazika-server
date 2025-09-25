@@ -22,7 +22,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     prisma.user.count({ where: { createdAt: { gte: thisMonth } } }),
     prisma.shop.count(),
     prisma.shop.count({ where: { isActive: true } }),
-    prisma.shop.count({ where: { isActive: false } }), // Removed isRejected filter
+    prisma.shop.count({ where: { isActive: false } }),
     prisma.order.count(),
     prisma.order.count({ where: { createdAt: { gte: thisMonth } } }),
     prisma.productReview.count(),
@@ -47,7 +47,8 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       return sum + parseFloat(amount);
     }, 0);
 
-  res.json(new ApiResponse(200, 'Admin dashboard metrics', {
+  // FIXED: Correct parameter order (statusCode, data, message)
+  res.json(new ApiResponse(200, {
     users: {
       total: totalUsers,
       newThisMonth: newUsersThisMonth
@@ -71,7 +72,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     returns: {
       pending: pendingReturns
     }
-  }));
+  }, 'Admin dashboard metrics'));
 });
 
 /* ----------  USER MANAGEMENT  ---------- */
@@ -107,7 +108,8 @@ export const listUsers = asyncHandler(async (req, res) => {
     prisma.user.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, 'Users retrieved', {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     users,
     pagination: {
       page: parseInt(page),
@@ -115,7 +117,7 @@ export const listUsers = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, 'Users retrieved'));
 });
 
 export const getUserDetails = asyncHandler(async (req, res) => {
@@ -139,7 +141,8 @@ export const getUserDetails = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'User not found');
   }
 
-  res.json(new ApiResponse(200, 'User details', user));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, user, 'User details'));
 });
 
 export const updateUserStatus = asyncHandler(async (req, res) => {
@@ -151,7 +154,8 @@ export const updateUserStatus = asyncHandler(async (req, res) => {
     data: { isActive: Boolean(isActive) }
   });
 
-  res.json(new ApiResponse(200, `User ${isActive ? 'activated' : 'deactivated'}`, user));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, user, `User ${isActive ? 'activated' : 'deactivated'}`));
 });
 
 export const updateUserRole = asyncHandler(async (req, res) => {
@@ -167,7 +171,8 @@ export const updateUserRole = asyncHandler(async (req, res) => {
     data: { role }
   });
 
-  res.json(new ApiResponse(200, 'User role updated', user));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, user, 'User role updated'));
 });
 
 /* ----------  SHOP MANAGEMENT  ---------- */
@@ -177,7 +182,6 @@ export const listShops = asyncHandler(async (req, res) => {
   const where = {};
   if (status === 'active') where.isActive = true;
   if (status === 'pending') where.isActive = false;
-  // Removed rejected status filter since isRejected doesn't exist
   
   if (search) {
     where.OR = [
@@ -208,7 +212,8 @@ export const listShops = asyncHandler(async (req, res) => {
     prisma.shop.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, 'Shops retrieved', {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     shops,
     pagination: {
       page: parseInt(page),
@@ -216,7 +221,7 @@ export const listShops = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, 'Shops retrieved'));
 });
 
 export const getShopDetails = asyncHandler(async (req, res) => {
@@ -252,7 +257,8 @@ export const getShopDetails = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Shop not found');
   }
 
-  res.json(new ApiResponse(200, 'Shop details', shop));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, shop, 'Shop details'));
 });
 
 export const approveShop = asyncHandler(async (req, res) => {
@@ -265,24 +271,23 @@ export const approveShop = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, 'Shop approved', shop));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, shop, 'Shop approved'));
 });
 
 export const rejectShop = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { reason } = req.body;
   
-  // Since isRejected field doesn't exist, just deactivate the shop
   const shop = await prisma.shop.update({
     where: { id },
     data: { 
       isActive: false
-      // Can add metadata to store rejection reason
-      // metadata: { rejected: true, reason: reason || 'Rejected by admin' }
     }
   });
 
-  res.json(new ApiResponse(200, 'Shop rejected', shop));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, shop, 'Shop rejected'));
 });
 
 /* ----------  ORDER MANAGEMENT  ---------- */
@@ -317,7 +322,8 @@ export const listOrders = asyncHandler(async (req, res) => {
     prisma.order.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, 'Orders retrieved', {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     orders,
     pagination: {
       page: parseInt(page),
@@ -325,7 +331,7 @@ export const listOrders = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, 'Orders retrieved'));
 });
 
 export const getOrderDetails = asyncHandler(async (req, res) => {
@@ -353,7 +359,8 @@ export const getOrderDetails = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Order not found');
   }
 
-  res.json(new ApiResponse(200, 'Order details', order));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, order, 'Order details'));
 });
 
 /* ----------  RETURN MANAGEMENT  ---------- */
@@ -393,7 +400,8 @@ export const listReturns = asyncHandler(async (req, res) => {
     prisma.returnRequest.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, 'Returns retrieved', {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     returns,
     pagination: {
       page: parseInt(page),
@@ -401,7 +409,7 @@ export const listReturns = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, 'Returns retrieved'));
 });
 
 /* ----------  REVIEW MANAGEMENT  ---------- */
@@ -434,7 +442,8 @@ export const listReviews = asyncHandler(async (req, res) => {
     prisma.productReview.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, 'Reviews retrieved', {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     reviews,
     pagination: {
       page: parseInt(page),
@@ -442,7 +451,7 @@ export const listReviews = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, 'Reviews retrieved'));
 });
 
 /* ----------  ANALYTICS  ---------- */
@@ -490,11 +499,12 @@ export const getAnalytics = asyncHandler(async (req, res) => {
     })
   ]);
 
-  res.json(new ApiResponse(200, 'Analytics data', {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     orderTrends,
     topShops,
     topProducts,
     userRegistrations,
     period: `${days} days`
-  }));
+  }, 'Analytics data'));
 });
