@@ -86,7 +86,7 @@ const registerUser = asyncHandler(async (req, res) => {
             rating: 0,
             totalDeliveries: 0,
             metadata: {
-              profileCompleted: false,
+              profileCompleted: true,
               registrationDate: new Date().toISOString()
             }
           }
