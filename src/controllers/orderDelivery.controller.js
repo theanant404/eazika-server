@@ -32,7 +32,7 @@ export const getAvailableOrders = asyncHandler(async (req, res) => {
   });
 
   res.json(
-    new ApiResponse(200, "Available orders fetched", {
+    new ApiResponse(200, {
       orders,
       pagination: {
         page: parseInt(page),
@@ -40,7 +40,7 @@ export const getAvailableOrders = asyncHandler(async (req, res) => {
         total,
         pages: Math.ceil(total / limit),
       },
-    })
+    },"Available orders fetched")
   );
 });
 
@@ -86,7 +86,7 @@ export const claimOrder = asyncHandler(async (req, res) => {
     },
   });
 
-  res.json(new ApiResponse(200, "Order claimed successfully", order));
+  res.json(new ApiResponse(200,  order, "Order claimed successfully"));
 });
 
 // Update order - picked up
@@ -117,7 +117,7 @@ export const markPickedUp = asyncHandler(async (req, res) => {
     },
   });
 
-  res.json(new ApiResponse(200, "Order marked as picked up", updatedOrder));
+  res.json(new ApiResponse(200,  updatedOrder,"Order marked as picked up"));
 });
 
 // Update order - delivered
@@ -155,7 +155,7 @@ export const markDelivered = asyncHandler(async (req, res) => {
     data: { totalDeliveries: { increment: 1 } },
   });
 
-  res.json(new ApiResponse(200, "Order marked as delivered", updatedOrder));
+  res.json(new ApiResponse(200,  updatedOrder,"Order marked as delivered"));
 });
 
 // List assigned orders for delivery boy
@@ -186,7 +186,7 @@ export const getAssignedOrders = asyncHandler(async (req, res) => {
   });
 
   res.json(
-    new ApiResponse(200, "Assigned orders retrieved", {
+    new ApiResponse(200,  {
       orders,
       pagination: {
         page: parseInt(page),
@@ -194,7 +194,7 @@ export const getAssignedOrders = asyncHandler(async (req, res) => {
         total,
         pages: Math.ceil(total / limit),
       },
-    })
+    },"Assigned orders retrieved")
   );
 });
 
@@ -222,7 +222,7 @@ export const getDeliveryHistory = asyncHandler(async (req, res) => {
   });
 
   res.json(
-    new ApiResponse(200, "Delivery history retrieved", {
+    new ApiResponse(200, {
       orders,
       pagination: {
         page: parseInt(page),
@@ -230,6 +230,6 @@ export const getDeliveryHistory = asyncHandler(async (req, res) => {
         total,
         pages: Math.ceil(total / limit),
       },
-    })
+    }, "Delivery history retrieved")
   );
 });

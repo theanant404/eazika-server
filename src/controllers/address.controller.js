@@ -12,7 +12,7 @@ export const getAddresses = asyncHandler(async (req, res) => {
     ]
   });
 
-  res.json(new ApiResponse(200, "Addresses retrieved successfully", addresses));
+  res.json(new ApiResponse(200, addresses,"Addresses retrieved successfully"));
 });
 
 // Add new address (Zod validation handled in middleware)
@@ -41,7 +41,7 @@ export const addAddress = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(201, "Address added successfully", newAddress));
+  res.json(new ApiResponse(201, newAddress, "Address added successfully"));
 });
 
 // Update address (ownership validation handled in middleware)
@@ -74,7 +74,7 @@ export const updateAddress = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "Address updated successfully", updatedAddress));
+  res.json(new ApiResponse(200, updatedAddress, "Address updated successfully"));
 });
 
 // Delete address (ownership validation handled in middleware)
@@ -102,5 +102,5 @@ export const setDefaultAddress = asyncHandler(async (req, res) => {
     data: { isDefault: true }
   });
 
-  res.json(new ApiResponse(200, "Default address updated", updatedAddress));
+  res.json(new ApiResponse(200,  updatedAddress, "Default address updated"));
 });

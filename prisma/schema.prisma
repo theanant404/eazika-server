@@ -49,6 +49,7 @@ enum ReturnStatus {
   APPROVED
   REJECTED
   PICKED_UP
+  RECIEVED
   REFUNDED
 }
 
@@ -80,7 +81,7 @@ model User {
   shopsOwned          Shop[]           @relation("ShopOwner")
   deliveries          Order[]          @relation("DeliveryOrders") // FIXED
   notifications       Notification[]
-  ratingsGiven        OrderRating[]    @relation("RatingsByCustomer")
+  productReviews ProductReview[] @relation("CustomerReviews")
 }
 
 
@@ -157,9 +158,14 @@ model Shop {
   rating      Float        @default(0)
   isActive    Boolean      @default(true)
   metadata    Json         @default("{}")
+  isRejected   Boolean  @default(false)     
+  rejectReason String?                    
   products    ShopProduct[]
+  avgRating    Float   @default(0) // Computed from all shop's product ratings
+  totalReviews Int     @default(0)
   orders      Order[]      @relation("OrdersByShop")
   createdAt   DateTime     @default(now())
+  
 }
 
 // Global Product Catalog
@@ -188,8 +194,14 @@ model ShopProduct {
   discountPercent Int         @default(0)
   metadata        Json        @default("{}")
   isActive        Boolean     @default(true)
+  isReturnable     Boolean   @default(true)
+  returnPeriodDays Int       @default(3)
+  reviews      ProductReview[]
+  avgRating    Float   @default(0)
+  totalReviews Int     @default(0)
   cartItems       CartItem[]
   orderItems      OrderItem[]
+  
 
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @default(now()) @updatedAt
@@ -227,10 +239,9 @@ model Order {
   cancelReason   String?
   rating         Int?
   orderItems     OrderItem[]
-  returnRequests ReturnRequest[]
   createdAt      DateTime       @default(now())
   deliveredAt    DateTime?
-  ratings        OrderRating[]
+  productReviews ProductReview[]
 }
 
 // Order Items
@@ -245,19 +256,22 @@ model OrderItem {
   unitPrice     Decimal
   totalPrice    Decimal
   snapshot      Json        @default("{}")
+  returnRequests ReturnRequest[]
 }
+
 
 // Returns
 
 model ReturnRequest {
   id           String       @id @default(uuid())
-  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId      String
+  orderItem    OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  orderItemId  String
   reason       String
   status       ReturnStatus @default(REQUESTED)
   refundAmount Decimal      @default(0)
   metadata     Json         @default("{}")
   createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 // Notifications
@@ -272,15 +286,22 @@ model Notification {
   createdAt  DateTime  @default(now())
 }
 
-// Ratings (for Orders; can be extended for shops/delivery boys)
 
-model OrderRating {
-  id         String    @id @default(uuid())
-  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId    String
-  customer   User      @relation("RatingsByCustomer", fields: [customerId], references: [id], onDelete: Cascade)
-  customerId String
-  rating     Int
-  review     String?
-  createdAt  DateTime  @default(now())
+
+model ProductReview {
+  id           String      @id @default(uuid())
+  customer     User        @relation("CustomerReviews", fields: [customerId], references: [id])
+  customerId   String
+  shopProduct  ShopProduct @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
+  shopProductId String
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId      String      // For purchase verification
+  rating       Int         // 1-5 stars
+  review       String?     // Optional text review
+  isHidden     Boolean     @default(false) // For admin moderation
+  helpfulVotes Int         @default(0) // Future: helpful/not helpful votes
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([customerId, shopProductId]) // One review per customer per product
 }

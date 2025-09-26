@@ -89,7 +89,9 @@ export const createOrder = asyncHandler(async (req, res) => {
           productBrand: product.globalProduct.brand,
           productImage: product.globalProduct.images[0] || null,
           originalPrice: product.price,
-          discountPercent: product.discountPercent
+          discountPercent: product.discountPercent,
+          isReturnable: product.isReturnable,
+          returnPeriodDays: product.returnPeriodDays
         }
       });
     }
@@ -170,7 +172,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     orders.push(order);
   }
 
-  res.json(new ApiResponse(201, "Order created successfully", orders));
+  res.json(new ApiResponse(201,  orders, "Order created successfully"));
 });
 
 // Get customer orders
@@ -214,7 +216,7 @@ export const getCustomerOrders = asyncHandler(async (req, res) => {
     prisma.order.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, "Orders retrieved successfully", {
+  res.json(new ApiResponse(200,  {
     orders,
     pagination: {
       page: parseInt(page),
@@ -222,14 +224,14 @@ export const getCustomerOrders = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, "Orders retrieved successfully"));
 });
 
 // Get order details
 export const getOrderDetails = asyncHandler(async (req, res) => {
   const order = req.order;
 
-  res.json(new ApiResponse(200, "Order details retrieved successfully", order));
+  res.json(new ApiResponse(200, order, "Order details retrieved successfully"));
 });
 
 // Cancel order
@@ -279,7 +281,7 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     return updated;
   });
 
-  res.json(new ApiResponse(200, "Order cancelled successfully", updatedOrder));
+  res.json(new ApiResponse(200, updatedOrder, "Order cancelled successfully"));
 });
 
 // Rate order
@@ -320,5 +322,5 @@ export const rateOrder = asyncHandler(async (req, res) => {
     data: { rating }
   });
 
-  res.json(new ApiResponse(201, "Order rated successfully", orderRating));
+  res.json(new ApiResponse(201, orderRating, "Order rated successfully"));
 });

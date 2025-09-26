@@ -139,7 +139,7 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!isPasswordValid) throw new ApiError(401, "Invalid credentials");
 
   return res.status(200).json(
-    new ApiResponse(200, "Login successful", {
+    new ApiResponse(200, {
       user: {
         id: user.id,
         name: user.name,
@@ -150,7 +150,7 @@ const loginUser = asyncHandler(async (req, res) => {
       },
       accessToken: await generateAccessToken(user.id, user.role),
       refreshToken: await generateRefreshToken(user.id, user.role),
-    })
+    }, "Login successful")
   );
 });
 
@@ -164,7 +164,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "User logged out successfully", null, true));
+    .json(new ApiResponse(200,  null,"User logged out successfully", true));
 });
 
 /**

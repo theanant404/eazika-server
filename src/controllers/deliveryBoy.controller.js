@@ -8,7 +8,7 @@ export const getProfile = asyncHandler(async (req, res) => {
     include: { user: { select: { id: true, name: true, phone: true, email: true } } },
   });
   if (!profile) throw new ApiError(404, 'Profile not found');
-  res.json(new ApiResponse(200, 'Delivery Boy profile retrieved', profile));
+  res.json(new ApiResponse(200,  profile, 'Delivery Boy profile retrieved'));
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
@@ -27,7 +27,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
       },
     },
   });
-  res.json(new ApiResponse(200, 'Delivery Boy profile updated', profile));
+  res.json(new ApiResponse(200, profile, 'Delivery Boy profile updated'));
 });
 
 export const toggleAvailability = asyncHandler(async (req, res) => {

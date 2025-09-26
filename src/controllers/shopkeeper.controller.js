@@ -27,7 +27,7 @@ export const getProfile = asyncHandler(async (req, res) => {
     });
   }
 
-  res.json(new ApiResponse(200, "Profile retrieved successfully", profile));
+  res.json(new ApiResponse(200, profile,"Profile retrieved successfully"));
 });
 
 // Update shopkeeper profile
@@ -69,7 +69,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "Profile updated successfully", updatedProfile));
+  res.json(new ApiResponse(200, updatedProfile,"Profile updated successfully"));
 });
 
 // Update KYC status (for admin use later)
@@ -88,7 +88,7 @@ export const updateKycStatus = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "KYC status updated successfully", updatedProfile));
+  res.json(new ApiResponse(200,  updatedProfile, "KYC status updated successfully"));
 });
 
 // Upload KYC documents
@@ -107,5 +107,5 @@ export const uploadKycDocuments = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "KYC documents uploaded successfully", updatedProfile));
+  res.json(new ApiResponse(200,  updatedProfile, "KYC documents uploaded successfully"));
 });

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { env } from "./config/index.js";
+import path from 'path';
 
 const app = express();
 
@@ -17,6 +18,8 @@ app.get("/", (_, res) =>
 );
 
 app.get("/health", (_, res) => res.json({ status: "ok" }));
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Routing
 import routes from "./routes/index.js";
