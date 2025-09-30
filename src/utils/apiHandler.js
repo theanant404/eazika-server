@@ -1,8 +1,14 @@
+import { env } from "../config/index.js";
 class ApiResponse {
-  constructor(statusCode, data, message = "Success") {
+  constructor(statusCode, message = "Success", data) {
+    if (env.isNodeEnvDevelopment)
+      console.log(
+        `ApiResponse:${statusCode},message: ${message}, and data: ${JSON.stringify(data)}`
+      );
+
     this.statusCode = statusCode;
-    this.data = data;
     this.message = message;
+    this.data = data;
     this.success = statusCode < 400;
   }
 }
@@ -14,6 +20,10 @@ class ApiError extends Error {
     errors = [],
     stack = ""
   ) {
+    if (env.isNodeEnvDevelopment) {
+      console.error(`ApiError:${statusCode},message: ${message}`);
+    }
+
     super(message);
     this.statusCode = statusCode;
     this.data = null;

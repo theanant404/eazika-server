@@ -7,7 +7,8 @@ const _env = {
     ? process.env.CORS_ORIGIN.split(",")
     : process.env.CORS_ORIGIN || "http://localhost:3000",
   port: Number(process.env.PORT) || 5000,
-  node_env: process.env.NODE_ENV === "production",
+  node_env: process.env.NODE_ENV,
+  isNodeEnvDevelopment: process.env.NODE_ENV.toLowerCase() === "development",
 
   // jwt
   jwt_access_token_secret: process.env.JWT_ACCESS_TOKEN_SECRET,
