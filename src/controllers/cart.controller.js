@@ -57,7 +57,7 @@ export const getCart = asyncHandler(async (req, res) => {
     }
   };
 
-  res.json(new ApiResponse(200, "Cart retrieved successfully", cartSummary));
+  res.json(new ApiResponse(200, cartSummary, "Cart retrieved successfully"));
 });
 
 // Add product to cart
@@ -106,7 +106,7 @@ export const addToCart = asyncHandler(async (req, res) => {
       }
     });
 
-    res.json(new ApiResponse(200, "Cart updated successfully", updatedCartItem));
+    res.json(new ApiResponse(200, updatedCartItem,"Cart updated successfully"));
   } else {
     // Add new item to cart
     const cartItem = await prisma.cartItem.create({
@@ -130,7 +130,7 @@ export const addToCart = asyncHandler(async (req, res) => {
       }
     });
 
-    res.json(new ApiResponse(201, "Product added to cart successfully", cartItem));
+    res.json(new ApiResponse(201, cartItem, "Product added to cart successfully"));
   }
 });
 
@@ -162,7 +162,7 @@ export const updateCartItem = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "Cart item updated successfully", updatedCartItem));
+  res.json(new ApiResponse(200, updatedCartItem, "Cart item updated successfully"));
 });
 
 // Remove item from cart

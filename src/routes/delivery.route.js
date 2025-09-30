@@ -12,7 +12,7 @@ import { ensureDeliveryBoy, requireDeliveryBoyProfileComplete } from '../middlew
 const router = Router();
 
 router.use(ensureDeliveryBoy);
-router.use(requireDeliveryBoyProfileComplete);
+//router.use(requireDeliveryBoyProfileComplete);
 
 // List available delivery orders (unassigned)
 router.get('/orders/available', getAvailableOrders);

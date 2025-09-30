@@ -32,7 +32,8 @@ export const getGlobalProducts = asyncHandler(async (req, res) => {
     prisma.globalProduct.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, "Global products retrieved successfully", {
+  // FIXED: Correct parameter order - (statusCode, data, message)
+  res.json(new ApiResponse(200, {
     products,
     pagination: {
       page: parseInt(page),
@@ -40,7 +41,7 @@ export const getGlobalProducts = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, "Global products retrieved successfully"));
 });
 
 // Get shop's products
@@ -81,7 +82,8 @@ export const getShopProducts = asyncHandler(async (req, res) => {
     prisma.shopProduct.count({ where })
   ]);
 
-  res.json(new ApiResponse(200, "Shop products retrieved successfully", {
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, {
     products,
     pagination: {
       page: parseInt(page),
@@ -89,7 +91,7 @@ export const getShopProducts = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / parseInt(limit))
     }
-  }));
+  }, "Shop products retrieved successfully"));
 });
 
 // Add product to shop
@@ -146,7 +148,8 @@ export const addProductToShop = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(201, "Product added to shop successfully", shopProduct));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(201, shopProduct, "Product added to shop successfully"));
 });
 
 // Update shop product
@@ -170,7 +173,8 @@ export const updateShopProduct = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, "Product updated successfully", updatedProduct));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, updatedProduct, "Product updated successfully"));
 });
 
 // Remove product from shop
@@ -195,7 +199,8 @@ export const removeProductFromShop = asyncHandler(async (req, res) => {
 
   await prisma.shopProduct.delete({ where: { id } });
 
-  res.json(new ApiResponse(200, "Product removed from shop successfully"));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, null, "Product removed from shop successfully"));
 });
 
 // Toggle product availability
@@ -212,7 +217,8 @@ export const toggleProductAvailability = asyncHandler(async (req, res) => {
     }
   });
 
-  res.json(new ApiResponse(200, `Product ${updatedProduct.isActive ? 'activated' : 'deactivated'} successfully`, updatedProduct));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, updatedProduct, `Product ${updatedProduct.isActive ? 'activated' : 'deactivated'} successfully`));
 });
 
 // Get product categories
@@ -229,5 +235,6 @@ export const getProductCategories = asyncHandler(async (req, res) => {
 
   const categoryList = categories.map(cat => cat.category);
 
-  res.json(new ApiResponse(200, "Product categories retrieved successfully", categoryList));
+  // FIXED: Correct parameter order
+  res.json(new ApiResponse(200, categoryList, "Product categories retrieved successfully"));
 });
