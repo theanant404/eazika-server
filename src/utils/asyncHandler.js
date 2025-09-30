@@ -4,6 +4,7 @@ const asyncHandler = (fn) => async (req, res, next) => {
   try {
     await fn(req, res, next);
   } catch (error) {
+    console.log("Error caught in asyncHandler:", error);
     if (error instanceof ZodError) {
       return res.status(400).json({
         status: "fail",
@@ -12,7 +13,7 @@ const asyncHandler = (fn) => async (req, res, next) => {
       });
     }
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       status: "error",
       message: error.message || "Something went wrong",
     });

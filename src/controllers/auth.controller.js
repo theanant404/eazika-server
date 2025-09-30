@@ -44,38 +44,38 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // 2. Create role-specific profile based on user role
     switch (newUser.role) {
-      case 'CUSTOMER':
+      case "CUSTOMER":
         await tx.customerProfile.create({
           data: {
             userId: newUser.id,
             metadata: {
               profileCompleted: false,
-              registrationDate: new Date().toISOString()
-            }
-          }
+              registrationDate: new Date().toISOString(),
+            },
+          },
         });
         break;
 
-      case 'SHOPKEEPER':
+      case "SHOPKEEPER":
         await tx.shopkeeperProfile.create({
           data: {
             userId: newUser.id,
-            businessName: payload.businessName || '', // Empty initially
-            kycStatus: 'PENDING',
+            businessName: payload.businessName || "", // Empty initially
+            kycStatus: "PENDING",
             kycDocuments: [],
-            commissionRate: 5.00,
+            commissionRate: 5.0,
             rating: 0,
             totalOrders: 0,
             metadata: {
               profileCompleted: false,
-              registrationDate: new Date().toISOString()
+              registrationDate: new Date().toISOString(),
             },
-            bankDetails: {}
-          }
+            bankDetails: {},
+          },
         });
         break;
 
-      case 'DELIVERY_BOY':
+      case "DELIVERY_BOY":
         await tx.deliveryProfile.create({
           data: {
             userId: newUser.id,
@@ -86,10 +86,10 @@ const registerUser = asyncHandler(async (req, res) => {
             rating: 0,
             totalDeliveries: 0,
             metadata: {
-              profileCompleted: true,
-              registrationDate: new Date().toISOString()
-            }
-          }
+              profileCompleted: false,
+              registrationDate: new Date().toISOString(),
+            },
+          },
         });
         break;
 
@@ -108,11 +108,10 @@ const registerUser = asyncHandler(async (req, res) => {
       phone: result.phone,
       role: result.role,
       profileImage: result.profileImage,
-      nextStep: "complete_profile" 
+      nextStep: "complete_profile",
     })
   );
 });
-
 
 /**
  * Login User
@@ -147,6 +146,8 @@ const loginUser = asyncHandler(async (req, res) => {
         phone: user.phone,
         role: user.role,
         profileImage: user.profileImage,
+        isActive: user.isActive,
+        isVerfied: user.isVerified,
       },
       accessToken: await generateAccessToken(user.id, user.role),
       refreshToken: await generateRefreshToken(user.id, user.role),
