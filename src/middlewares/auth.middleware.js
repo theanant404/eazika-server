@@ -47,8 +47,8 @@ const isCustomer = asyncHandler(async (req, _, next) => {
       select: { id: true, role: true, name: true, email: true },
     });
 
-    // if (user.role !== "CUSTOMER")
-    //   throw new ApiError(403, "Customer access required");
+    if (user.role !== "CUSTOMER")
+      throw new ApiError(403, "Customer access required");
     req.user = user;
     next();
   } catch (error) {
