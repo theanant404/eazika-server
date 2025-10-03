@@ -3,7 +3,7 @@ class ApiResponse {
   constructor(statusCode, message = "Success", data) {
     if (env.isNodeEnvDevelopment)
       console.log(
-        `ApiResponse:${statusCode},message: ${message}, and data: ${JSON.stringify(data)}`
+        `ApiResponse : ${statusCode},message: ${message}, and data: ${JSON.stringify(data)}`
       );
 
     this.statusCode = statusCode;
@@ -21,7 +21,7 @@ class ApiError extends Error {
     stack = ""
   ) {
     if (env.isNodeEnvDevelopment) {
-      console.error(`ApiError:${statusCode},message: ${message}`);
+      console.error(`ApiError : ${statusCode},message: ${message}`);
     }
 
     super(message);
