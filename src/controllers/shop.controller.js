@@ -1,20 +1,21 @@
-import prisma from '../config/dbConfig.js';
-import { asyncHandler } from '../utils/asyncHandler.js';
-import { ApiResponse, ApiError } from '../utils/apiHandler.js';
+import prisma from "../config/dbConfig.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiResponse, ApiError } from "../utils/apiHandler.js";
+import * as validateShop from "../validations/shop.validation.js";
 
 // Get all shops owned by shopkeeper
 export const getShops = asyncHandler(async (req, res) => {
   const shops = await prisma.shop.findMany({
     where: { ownerId: req.user.id },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     include: {
       _count: {
         select: {
           products: true,
-          orders: true
-        }
-      }
-    }
+          orders: true,
+        },
+      },
+    },
   });
 
   res.json(new ApiResponse(200, shops, "Shops retrieved successfully"));
@@ -27,16 +28,16 @@ export const getShop = asyncHandler(async (req, res) => {
   const shop = await prisma.shop.findFirst({
     where: {
       id,
-      ownerId: req.user.id
+      ownerId: req.user.id,
     },
     include: {
       _count: {
         select: {
           products: true,
-          orders: true
-        }
-      }
-    }
+          orders: true,
+        },
+      },
+    },
   });
 
   if (!shop) {
@@ -48,56 +49,51 @@ export const getShop = asyncHandler(async (req, res) => {
 
 // Create new shop
 export const createShop = asyncHandler(async (req, res) => {
-  const { 
-    name, 
-    description, 
-    address, 
-    contact, 
-    operatingHours,
-    images 
-  } = req.body;
+  const ShopPayload = await validateShop.shopSchema.parseAsync(req.body);
 
-  // Check if shopkeeper profile is complete
-  const profile = await prisma.shopkeeperProfile.findUnique({
-    where: { userId: req.user.id }
-  });
+  // const existingShop = await prisma.shop.findFirst({
+  //   where: { ownerId: req.user.id },
+  // });
+  // if (existingShop) throw new ApiError(400, "You already own a shop");
 
-  if (!profile || !profile.businessName) {
-    throw new ApiError(400, "Please complete your shopkeeper profile first");
-  }
+  const [newShop] = await prisma.$transaction([
+    prisma.shop.create({
+      data: {
+        name: ShopPayload.name,
+        ownerId: String(req.user.id),
+        description: ShopPayload.description,
+        address: ShopPayload.address,
+        contact: {
+          phone: ShopPayload.contact.phone,
+          email: ShopPayload.contact.email,
+          website: ShopPayload.contact.website,
+          isPhoneVerified: false,
+          isEmailVerified: false,
+        },
+        images: ShopPayload.images,
+        isActive: false,
+        metadata: {
+          operatingHours: ShopPayload.operatingHours,
+          lastUpdated: new Date().toISOString(),
+        },
+      },
+    }),
+    prisma.user.update({
+      where: { id: req.user.id },
+      data: { role: "SHOPKEEPER" },
+    }),
+  ]);
 
-  const newShop = await prisma.shop.create({
-    data: {
-      ownerId: req.user.id,
-      name,
-      description: description || null,
-      address: address || {},
-      contact: contact || {},
-      images: images || [],
-      metadata: {
-        operatingHours: operatingHours || {},
-        deliveryRadius: 5,
-        minimumOrder: 0,
-        deliveryFee: 0,
-        createdAt: new Date().toISOString()
-      }
-    }
-  });
+  if (!newShop) throw new ApiError(500, "Failed to create shop");
 
-  res.json(new ApiResponse(201, newShop, "Shop created successfully"));
+  res.json(new ApiResponse(201, "Shop created successfully", newShop));
 });
 
 // Update shop
 export const updateShop = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { 
-    name, 
-    description, 
-    address, 
-    contact, 
-    operatingHours,
-    images 
-  } = req.body;
+  const { name, description, address, contact, operatingHours, images } =
+    req.body;
 
   const updatedShop = await prisma.shop.update({
     where: { id },
@@ -110,9 +106,9 @@ export const updateShop = asyncHandler(async (req, res) => {
       metadata: {
         ...req.shop?.metadata,
         operatingHours: operatingHours || {},
-        lastUpdated: new Date().toISOString()
-      }
-    }
+        lastUpdated: new Date().toISOString(),
+      },
+    },
   });
 
   res.json(new ApiResponse(200, updatedShop, "Shop updated successfully"));
@@ -124,7 +120,7 @@ export const deleteShop = asyncHandler(async (req, res) => {
 
   // Check if shop has any orders
   const orderCount = await prisma.order.count({
-    where: { shopId: id }
+    where: { shopId: id },
   });
 
   if (orderCount > 0) {
@@ -141,7 +137,7 @@ export const toggleShopStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const shop = await prisma.shop.findFirst({
-    where: { id, ownerId: req.user.id }
+    where: { id, ownerId: req.user.id },
   });
 
   if (!shop) {
@@ -151,43 +147,59 @@ export const toggleShopStatus = asyncHandler(async (req, res) => {
   const updatedShop = await prisma.shop.update({
     where: { id },
     data: {
-      isActive: !shop.isActive
-    }
+      isActive: !shop.isActive,
+    },
   });
 
-  res.json(new ApiResponse(200, updatedShop, `Shop ${updatedShop.isActive ? 'activated' : 'deactivated'} successfully`));
+  res.json(
+    new ApiResponse(
+      200,
+      updatedShop,
+      `Shop ${updatedShop.isActive ? "activated" : "deactivated"} successfully`
+    )
+  );
 });
 
 // Get dashboard statistics
 export const getDashboardStats = asyncHandler(async (req, res) => {
   const shopkeeperId = req.user.id;
-  
+
   // Get all shops owned by shopkeeper
   const shops = await prisma.shop.findMany({
     where: { ownerId: shopkeeperId },
-    select: { id: true }
+    select: { id: true },
   });
-  
-  const shopIds = shops.map(shop => shop.id);
-  
+
+  const shopIds = shops.map((shop) => shop.id);
+
   if (shopIds.length === 0) {
-    return res.json(new ApiResponse(200, {
-      totalProducts: 0,
-      activeProducts: 0,
-      outOfStock: 0,
-      lowStock: 0,
-      totalOrders: 0,
-      pendingOrders: 0,
-      todayRevenue: 0,
-      monthlyRevenue: 0
-    }, "No shops found"));
+    return res.json(
+      new ApiResponse(
+        200,
+        {
+          totalProducts: 0,
+          activeProducts: 0,
+          outOfStock: 0,
+          lowStock: 0,
+          totalOrders: 0,
+          pendingOrders: 0,
+          todayRevenue: 0,
+          monthlyRevenue: 0,
+        },
+        "No shops found"
+      )
+    );
   }
 
   // Get current date boundaries
   const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  
+
   // Parallel queries for better performance
   const [
     productCounts,
@@ -195,91 +207,95 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     todayOrders,
     monthlyOrders,
     outOfStockCount,
-    lowStockCount
+    lowStockCount,
   ] = await Promise.all([
     // Product counts
     prisma.shopProduct.aggregate({
       where: { shopId: { in: shopIds } },
-      _count: { id: true }
+      _count: { id: true },
     }),
 
     // Active product count
     prisma.shopProduct.aggregate({
-      where: { 
+      where: {
         shopId: { in: shopIds },
-        isActive: true 
+        isActive: true,
       },
-      _count: { id: true }
+      _count: { id: true },
     }),
 
     // Today's delivered orders for revenue
     prisma.order.findMany({
       where: {
         shopId: { in: shopIds },
-        status: 'DELIVERED',
+        status: "DELIVERED",
         deliveredAt: {
-          gte: startOfToday
-        }
+          gte: startOfToday,
+        },
       },
       select: {
-        pricing: true
-      }
+        pricing: true,
+      },
     }),
 
     // Monthly delivered orders for revenue
     prisma.order.findMany({
       where: {
         shopId: { in: shopIds },
-        status: 'DELIVERED',
+        status: "DELIVERED",
         deliveredAt: {
-          gte: startOfMonth
-        }
+          gte: startOfMonth,
+        },
       },
       select: {
-        pricing: true
-      }
+        pricing: true,
+      },
     }),
 
     // Out of stock products
     prisma.shopProduct.count({
-      where: { 
+      where: {
         shopId: { in: shopIds },
         stockQuantity: 0,
-        isActive: true
-      }
+        isActive: true,
+      },
     }),
 
     // Low stock products (less than or equal to 10)
     prisma.shopProduct.count({
-      where: { 
+      where: {
         shopId: { in: shopIds },
         stockQuantity: { lte: 10, gt: 0 },
-        isActive: true
-      }
-    })
+        isActive: true,
+      },
+    }),
   ]);
 
   // Get order status counts
   const orderStatusCounts = await prisma.order.groupBy({
-    by: ['status'],
+    by: ["status"],
     where: { shopId: { in: shopIds } },
-    _count: { status: true }
+    _count: { status: true },
   });
 
   // Calculate revenues
   const todayRevenue = todayOrders.reduce((sum, order) => {
-    const pricing = typeof order.pricing === 'object' ? order.pricing : {};
+    const pricing = typeof order.pricing === "object" ? order.pricing : {};
     return sum + (pricing.totalAmount || 0);
   }, 0);
 
   const monthlyRevenue = monthlyOrders.reduce((sum, order) => {
-    const pricing = typeof order.pricing === 'object' ? order.pricing : {};
+    const pricing = typeof order.pricing === "object" ? order.pricing : {};
     return sum + (pricing.totalAmount || 0);
   }, 0);
 
   // Process order status counts
-  const pendingOrders = orderStatusCounts.find(o => o.status === 'PENDING')?._count.status || 0;
-  const totalOrders = orderStatusCounts.reduce((sum, stat) => sum + stat._count.status, 0);
+  const pendingOrders =
+    orderStatusCounts.find((o) => o.status === "PENDING")?._count.status || 0;
+  const totalOrders = orderStatusCounts.reduce(
+    (sum, stat) => sum + stat._count.status,
+    0
+  );
 
   const stats = {
     totalProducts: productCounts._count.id || 0,
@@ -289,25 +305,27 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     totalOrders: totalOrders,
     pendingOrders: pendingOrders,
     todayRevenue: Math.round(todayRevenue),
-    monthlyRevenue: Math.round(monthlyRevenue)
+    monthlyRevenue: Math.round(monthlyRevenue),
   };
 
-  res.json(new ApiResponse(200, stats, "Dashboard statistics retrieved successfully"));
+  res.json(
+    new ApiResponse(200, stats, "Dashboard statistics retrieved successfully")
+  );
 });
 
 // Get low stock products
 export const getLowStockProducts = asyncHandler(async (req, res) => {
   const { threshold = 10 } = req.query;
   const shopkeeperId = req.user.id;
-  
+
   // Get all shops owned by shopkeeper
   const shops = await prisma.shop.findMany({
     where: { ownerId: shopkeeperId },
-    select: { id: true }
+    select: { id: true },
   });
-  
-  const shopIds = shops.map(shop => shop.id);
-  
+
+  const shopIds = shops.map((shop) => shop.id);
+
   if (shopIds.length === 0) {
     return res.json(new ApiResponse(200, [], "No shops found"));
   }
@@ -316,9 +334,9 @@ export const getLowStockProducts = asyncHandler(async (req, res) => {
     where: {
       shopId: { in: shopIds },
       stockQuantity: {
-        lte: parseInt(threshold)
+        lte: parseInt(threshold),
       },
-      isActive: true
+      isActive: true,
     },
     include: {
       globalProduct: {
@@ -326,53 +344,63 @@ export const getLowStockProducts = asyncHandler(async (req, res) => {
           name: true,
           brand: true,
           category: true,
-          images: true
-        }
+          images: true,
+        },
       },
       shop: {
         select: {
-          name: true
-        }
-      }
+          name: true,
+        },
+      },
     },
     orderBy: {
-      stockQuantity: 'asc' // Most critical first
-    }
+      stockQuantity: "asc", // Most critical first
+    },
   });
 
-  const formattedProducts = lowStockProducts.map(product => ({
+  const formattedProducts = lowStockProducts.map((product) => ({
     id: product.id,
     stockQuantity: product.stockQuantity,
     price: parseFloat(product.price),
     globalProduct: product.globalProduct,
     shop: product.shop,
-    priority: product.stockQuantity === 0 ? 'critical' : 
-              product.stockQuantity <= 5 ? 'high' : 'medium'
+    priority:
+      product.stockQuantity === 0
+        ? "critical"
+        : product.stockQuantity <= 5
+          ? "high"
+          : "medium",
   }));
 
-  res.json(new ApiResponse(200, formattedProducts, "Low stock products retrieved successfully"));
+  res.json(
+    new ApiResponse(
+      200,
+      formattedProducts,
+      "Low stock products retrieved successfully"
+    )
+  );
 });
 
 // Get shop orders (for dashboard and orders page)
 export const getShopOrders = asyncHandler(async (req, res) => {
   const { status, limit = 50, offset = 0 } = req.query;
   const shopkeeperId = req.user.id;
-  
+
   // Get all shops owned by shopkeeper
   const shops = await prisma.shop.findMany({
     where: { ownerId: shopkeeperId },
-    select: { id: true }
+    select: { id: true },
   });
-  
-  const shopIds = shops.map(shop => shop.id);
-  
+
+  const shopIds = shops.map((shop) => shop.id);
+
   if (shopIds.length === 0) {
     return res.json(new ApiResponse(200, [], "No shops found"));
   }
 
   const whereClause = {
     shopId: { in: shopIds },
-    ...(status && { status: status.toUpperCase() })
+    ...(status && { status: status.toUpperCase() }),
   };
 
   const orders = await prisma.order.findMany({
@@ -383,13 +411,13 @@ export const getShopOrders = asyncHandler(async (req, res) => {
           id: true,
           name: true,
           phone: true,
-          email: true
-        }
+          email: true,
+        },
       },
       shop: {
         select: {
-          name: true
-        }
+          name: true,
+        },
       },
       orderItems: {
         include: {
@@ -399,28 +427,39 @@ export const getShopOrders = asyncHandler(async (req, res) => {
                 select: {
                   name: true,
                   brand: true,
-                  images: true
-                }
-              }
-            }
-          }
-        }
-      }
+                  images: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     take: parseInt(limit),
-    skip: parseInt(offset)
+    skip: parseInt(offset),
   });
 
   // Format orders for frontend
-  const formattedOrders = orders.map(order => ({
+  const formattedOrders = orders.map((order) => ({
     ...order,
-    pricing: typeof order.pricing === 'object' ? order.pricing : JSON.parse(order.pricing || '{}'),
-    deliveryInfo: typeof order.deliveryInfo === 'object' ? order.deliveryInfo : JSON.parse(order.deliveryInfo || '{}'),
-    statusHistory: typeof order.statusHistory === 'object' ? order.statusHistory : JSON.parse(order.statusHistory || '[]')
+    pricing:
+      typeof order.pricing === "object"
+        ? order.pricing
+        : JSON.parse(order.pricing || "{}"),
+    deliveryInfo:
+      typeof order.deliveryInfo === "object"
+        ? order.deliveryInfo
+        : JSON.parse(order.deliveryInfo || "{}"),
+    statusHistory:
+      typeof order.statusHistory === "object"
+        ? order.statusHistory
+        : JSON.parse(order.statusHistory || "[]"),
   }));
 
-  res.json(new ApiResponse(200, formattedOrders, "Shop orders retrieved successfully"));
+  res.json(
+    new ApiResponse(200, formattedOrders, "Shop orders retrieved successfully")
+  );
 });
 
 // Update order status
@@ -434,12 +473,12 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     where: {
       id: orderId,
       shop: {
-        ownerId: shopkeeperId
-      }
+        ownerId: shopkeeperId,
+      },
     },
     include: {
-      shop: true
-    }
+      shop: true,
+    },
   });
 
   if (!order) {
@@ -447,15 +486,23 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   // Validate status transition
-  const validStatuses = ['PENDING', 'CONFIRMED', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+  const validStatuses = [
+    "PENDING",
+    "CONFIRMED",
+    "READY_FOR_PICKUP",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "CANCELLED",
+  ];
   if (!validStatuses.includes(status)) {
     throw new ApiError(400, "Invalid order status");
   }
 
   // Get current status history
-  const currentHistory = typeof order.statusHistory === 'object' 
-    ? order.statusHistory 
-    : JSON.parse(order.statusHistory || '[]');
+  const currentHistory =
+    typeof order.statusHistory === "object"
+      ? order.statusHistory
+      : JSON.parse(order.statusHistory || "[]");
 
   // Add new status to history
   const newHistory = [
@@ -464,8 +511,8 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       status,
       changedAt: new Date().toISOString(),
       changedBy: req.user.id,
-      notes: notes || null
-    }
+      notes: notes || null,
+    },
   ];
 
   // Update order
@@ -474,16 +521,26 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     data: {
       status,
       statusHistory: newHistory,
-      ...(status === 'DELIVERED' && { deliveredAt: new Date() })
-    }
+      ...(status === "DELIVERED" && { deliveredAt: new Date() }),
+    },
   });
 
-  res.json(new ApiResponse(200, updatedOrder, "Order status updated successfully"));
+  res.json(
+    new ApiResponse(200, updatedOrder, "Order status updated successfully")
+  );
 });
 
 // Get shop products
 export const getShopProducts = asyncHandler(async (req, res) => {
-  const { shopId, category, search, sortBy = 'createdAt', sortOrder = 'desc', limit = 50, offset = 0 } = req.query;
+  const {
+    shopId,
+    category,
+    search,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+    limit = 50,
+    offset = 0,
+  } = req.query;
   const shopkeeperId = req.user.id;
 
   let whereClause = {};
@@ -491,7 +548,7 @@ export const getShopProducts = asyncHandler(async (req, res) => {
   if (shopId) {
     // Verify shop ownership
     const shop = await prisma.shop.findFirst({
-      where: { id: shopId, ownerId: shopkeeperId }
+      where: { id: shopId, ownerId: shopkeeperId },
     });
     if (!shop) {
       throw new ApiError(404, "Shop not found or access denied");
@@ -501,15 +558,15 @@ export const getShopProducts = asyncHandler(async (req, res) => {
     // Get all shops owned by shopkeeper
     const shops = await prisma.shop.findMany({
       where: { ownerId: shopkeeperId },
-      select: { id: true }
+      select: { id: true },
     });
-    whereClause.shopId = { in: shops.map(shop => shop.id) };
+    whereClause.shopId = { in: shops.map((shop) => shop.id) };
   }
 
   // Add filters
   if (category) {
     whereClause.globalProduct = {
-      category: category
+      category: category,
     };
   }
 
@@ -518,8 +575,8 @@ export const getShopProducts = asyncHandler(async (req, res) => {
       ...whereClause.globalProduct,
       name: {
         contains: search,
-        mode: 'insensitive'
-      }
+        mode: "insensitive",
+      },
     };
   }
 
@@ -532,35 +589,41 @@ export const getShopProducts = asyncHandler(async (req, res) => {
           brand: true,
           category: true,
           images: true,
-          tags: true
-        }
+          tags: true,
+        },
       },
       shop: {
         select: {
-          name: true
-        }
+          name: true,
+        },
       },
       _count: {
         select: {
-          reviews: true
-        }
-      }
+          reviews: true,
+        },
+      },
     },
     orderBy: {
-      [sortBy]: sortOrder
+      [sortBy]: sortOrder,
     },
     take: parseInt(limit),
-    skip: parseInt(offset)
+    skip: parseInt(offset),
   });
 
-  const formattedProducts = products.map(product => ({
+  const formattedProducts = products.map((product) => ({
     ...product,
     price: parseFloat(product.price),
     avgRating: parseFloat(product.avgRating) || 0,
-    reviewCount: product._count.reviews
+    reviewCount: product._count.reviews,
   }));
 
-  res.json(new ApiResponse(200, formattedProducts, "Shop products retrieved successfully"));
+  res.json(
+    new ApiResponse(
+      200,
+      formattedProducts,
+      "Shop products retrieved successfully"
+    )
+  );
 });
 
 // Update product stock
@@ -578,9 +641,9 @@ export const updateProductStock = asyncHandler(async (req, res) => {
     where: {
       id: productId,
       shop: {
-        ownerId: shopkeeperId
-      }
-    }
+        ownerId: shopkeeperId,
+      },
+    },
   });
 
   if (!product) {
@@ -591,17 +654,19 @@ export const updateProductStock = asyncHandler(async (req, res) => {
     where: { id: productId },
     data: {
       stockQuantity: parseInt(stockQuantity),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     },
     include: {
       globalProduct: {
         select: {
           name: true,
-          brand: true
-        }
-      }
-    }
+          brand: true,
+        },
+      },
+    },
   });
 
-  res.json(new ApiResponse(200, updatedProduct, "Product stock updated successfully"));
+  res.json(
+    new ApiResponse(200, updatedProduct, "Product stock updated successfully")
+  );
 });
