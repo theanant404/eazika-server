@@ -16,6 +16,7 @@ import {
  */
 const registerUser = asyncHandler(async (req, res) => {
   const payload = await registeredUserSchema.parseAsync(req.body);
+  console.log("Registration Payload:", payload);
   // Expected: { name, phone, email?, password, role?, profileImage? }
 
   const existingUser = await prisma.user.findFirst({
