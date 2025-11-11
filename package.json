@@ -1,51 +1,40 @@
 {
-  "name": "eazika-backend",
-  "version": "1.0.0",
-  "type": "module",
-  "private": true,
-  "main": "index.js",
+  "name": "eazika-server-2o",
+  "version": "2.0.0",
+  "description": "This is the backend for the Eazika application, built with Node.js and Express.",
+  "license": "MIT",
+  "author": "eazika",
+  "type": "commonjs",
+  "main": "/dist/index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/dev-voy/eazika-backend.git"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+    "start": "tsc && node dist/index.js",
+    "dev": "nodemon --exec \"npm run start\" --ext ts --watch src"
   },
   "keywords": [
     "eazika"
   ],
-  "author": "devvoy",
-  "license": "MIT",
+  "homepage": "https://github.com/dev-voy/eazika-server-2O#readme",
   "bugs": {
-    "url": "https://github.com/dev-voy/eazika-backend/issues"
+    "url": "https://github.com/dev-voy/eazika-server-2O/issues"
   },
-  "homepage": "https://github.com/dev-voy/eazika-backend#readme",
-  "description": "This is the backend for the Eazika application, built with Node.js and Express.",
-  "dependencies": {
-    "@google-cloud/storage": "^7.17.2",
-    "@prisma/client": "^6.12.0",
-    "bcrypt": "^6.0.0",
-    "body-parser": "^2.2.0",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.0",
-    "express": "^5.1.0",
-    "firebase": "^12.5.0",
-    "googleapis": "^154.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2",
-    "zod": "^4.0.5"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-voy/eazika-server-2O.git"
   },
   "devDependencies": {
-    "@eslint/js": "^9.31.0",
-    "eslint": "^9.31.0",
-    "globals": "^16.3.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
-    "prisma": "^6.12.0"
+    "prisma": "^6.19.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
   }
 }

@@ -1,307 +1,49 @@
-// Prisma Schema for Eazika MVP (Optimized for Scalability)
-// Simplified for MVP without Coupons, using JSONB where appropriate
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/prisma"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// Enums
-
 enum Role {
-  CUSTOMER
-  SHOPKEEPER
-  DELIVERY_BOY
-  ADMIN
+user //customer
+shopkeeper
+delivery_boy
+admin
 }
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  READY_FOR_PICKUP
-  OUT_FOR_DELIVERY
-  DELIVERED
-  CANCELLED
-  RETURN_REQUESTED
-  RETURNED
-}
-
-enum PaymentMethod {
-  COD
-  UPI
-  CARD
-  WALLET
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
-}
-
-enum ReturnStatus {
-  REQUESTED
-  APPROVED
-  REJECTED
-  PICKED_UP
-  RECIEVED
-  REFUNDED
-}
-
-// Core User Table
 
 model User {
-  id              String    @id @default(uuid())
-  phone           String    @unique
-  email           String    @unique
-  password        String
-  name            String
-  role            Role
-  profileImage    String?
-  isActive        Boolean   @default(true)
-  isVerified      Boolean   @default(false)
-  deviceTokens    String[]
-  metadata        Json      @default("{}")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  lastLogin       DateTime?
-
-  // Relations
-  addresses           Address[]
-  orders              Order[]          @relation("CustomerOrders")
-  cartItems           CartItem[]
-  customerProfile     CustomerProfile?
-  shopkeeperProfile   ShopkeeperProfile?
-  deliveryProfile     DeliveryProfile?
-  shopsOwned          Shop[]           @relation("ShopOwner")
-  deliveries          Order[]          @relation("DeliveryOrders") // FIXED
-  notifications       Notification[]
-  productReviews ProductReview[] @relation("CustomerReviews")
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String   @unique
+  email     String   @unique
+  password  String?
+  role      String 
+  address   Address[]  @relation("user_addresses")
+  is_active Boolean  @default(true)
+  is_phone_verified Boolean @default(false)
+  is_email_verified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
-
-
-// Customer Profile
-
-model CustomerProfile {
-  userId    String  @id
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  metadata  Json    @default("{}")
-}
-
-// Shopkeeper Profile
-
-model ShopkeeperProfile {
-  userId         String   @id
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessName   String
-  kycStatus      String   @default("PENDING")
-  kycDocuments   Json    @default("[]")
-  commissionRate Decimal  @default(5.00)
-  rating         Decimal  @default(0)
-  totalOrders    Int      @default(0)
-  metadata       Json    @default("{}")
-  bankDetails    Json    @default("{}")
-}
-
-// Delivery Profile
-
-model DeliveryProfile {
-  userId          String   @id
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicleType     String?
-  vehicleNumber   String?
-  isAvailable     Boolean  @default(true)
-  deliveryRadius  Int      @default(5)
-  rating          Decimal  @default(0)
-  totalDeliveries Int      @default(0)
-  metadata        Json     @default("{}")
-}
-
-// Address Table
 
 model Address {
-  id          String   @id @default(uuid())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  label       String?
-  line1       String
-  line2       String?
-  city        String
-  state       String
-  pincode     String
-  geoLocation Json     @default("{}")
-  isDefault   Boolean  @default(false)
-  
-  // Add these with default values
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-}
-
-
-
-// Shop Table
-
-model Shop {
-  id          String       @id @default(uuid())
-  owner       User         @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId     String
-  name        String
-  description String?
-  address     Json         @default("{}")
-  contact     Json         @default("{}")
-  images      String[]     @default([])
-  rating      Float        @default(0)
-  isActive    Boolean      @default(true)
-  metadata    Json         @default("{}")
-  isRejected   Boolean  @default(false)     
-  rejectReason String?                    
-  products    ShopProduct[]
-  avgRating    Float   @default(0) // Computed from all shop's product ratings
-  totalReviews Int     @default(0)
-  orders      Order[]      @relation("OrdersByShop")
-  createdAt   DateTime     @default(now())
-  
-}
-
-// Global Product Catalog
-
-model GlobalProduct {
-  id           String        @id @default(uuid())
-  name         String
-  brand        String?
-  category     String
-  images       String[]      @default([])
-  tags         String[]      @default([])
-  metadata     Json          @default("{}")
-  shopProducts ShopProduct[]
-}
-
-// Shop-specific product mapping
-
-model ShopProduct {
-  id              String      @id @default(uuid())
-  shop            Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  shopId          String
-  globalProduct   GlobalProduct @relation(fields: [globalProductId], references: [id], onDelete: Cascade)
-  globalProductId String
-  price           Decimal
-  stockQuantity   Int         @default(0)
-  discountPercent Int         @default(0)
-  metadata        Json        @default("{}")
-  isActive        Boolean     @default(true)
-  isReturnable     Boolean   @default(true)
-  returnPeriodDays Int       @default(3)
-  reviews      ProductReview[]
-  avgRating    Float   @default(0)
-  totalReviews Int     @default(0)
-  cartItems       CartItem[]
-  orderItems      OrderItem[]
-  
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @default(now()) @updatedAt
-}
-
-// Cart Table
-
-model CartItem {
-  id            String      @id @default(uuid())
-  customer      User        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customerId    String
-  shopProduct   ShopProduct @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
-  shopProductId String
-  quantity      Int         @default(1)
-  addedAt       DateTime    @default(now())
-  @@unique([customerId, shopProductId])
-}
-
-// Orders Table
-
-model Order {
-  id             String         @id @default(uuid())
-  orderNumber    String         @unique
-  customer       User           @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
-  customerId     String
-  shop           Shop           @relation("OrdersByShop", fields: [shopId], references: [id])
-  shopId         String
-  deliveryBoy    User?          @relation("DeliveryOrders", fields: [deliveryBoyId], references: [id])
-  deliveryBoyId  String?
-  status         OrderStatus    @default(PENDING)
-  statusHistory  Json           @default("[]") // Array of objects: {status, changedAt, by}
-  pricing        Json           @default("{}") // subtotal, deliveryFee, totalAmount
-  payment        Json           @default("{}") // {method, status, paymentId}
-  deliveryInfo   Json           @default("{}") // address snapshot, ETA, OTP
-  cancelReason   String?
-  rating         Int?
-  orderItems     OrderItem[]
-  createdAt      DateTime       @default(now())
-  deliveredAt    DateTime?
-  productReviews ProductReview[]
-}
-
-// Order Items
-
-model OrderItem {
-  id            String      @id @default(uuid())
-  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId       String
-  shopProduct   ShopProduct @relation(fields: [shopProductId], references: [id])
-  shopProductId String
-  quantity      Int
-  unitPrice     Decimal
-  totalPrice    Decimal
-  snapshot      Json        @default("{}")
-  returnRequests ReturnRequest[]
-}
-
-
-// Returns
-
-model ReturnRequest {
-  id           String       @id @default(uuid())
-  orderItem    OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  orderItemId  String
-  reason       String
-  status       ReturnStatus @default(REQUESTED)
-  refundAmount Decimal      @default(0)
-  metadata     Json         @default("{}")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-}
-
-// Notifications
-
-model Notification {
-  id         String    @id @default(uuid())
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String
-  type       String
-  data       Json      @default("{}")
-  read       Boolean   @default(false)
-  createdAt  DateTime  @default(now())
-}
-
-
-
-model ProductReview {
-  id           String      @id @default(uuid())
-  customer     User        @relation("CustomerReviews", fields: [customerId], references: [id])
-  customerId   String
-  shopProduct  ShopProduct @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
-  shopProductId String
-  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId      String      // For purchase verification
-  rating       Int         // 1-5 stars
-  review       String?     // Optional text review
-  isHidden     Boolean     @default(false) // For admin moderation
-  helpfulVotes Int         @default(0) // Future: helpful/not helpful votes
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  @@unique([customerId, shopProductId]) // One review per customer per product
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  line1     String
+  line2     String?
+  street    String?
+  country   String  @default("india")
+  state     String
+  city      String
+  zipCode   String
+  user      User     @relation("user_addresses", fields: [userId], references: [id])
+  userId    Int @map("user_id")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

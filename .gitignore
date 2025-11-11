@@ -141,3 +141,5 @@ vite.config.ts.timestamp-*
 # Google Cloud credentials file
 google-credentials.json
 key.json
+
+/prisma/generated
