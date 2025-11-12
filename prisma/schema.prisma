@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client"
   output   = "./generated/prisma"
@@ -9,41 +8,158 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums
+
 enum Role {
-user //customer
-shopkeeper
-delivery_boy
-admin
+  user //customer
+  shopkeeper
+  delivery_boy
+  admin
 }
 
+enum ShopCategory {
+  grocery
+  electronics
+  furniture
+  clothing
+  bakery
+  hmoeAppliances
+  others
+}
+
+// Models
+
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String   @unique
-  email     String   @unique
-  password  String?
-  role      String 
-  address   Address[]  @relation("user_addresses")
-  is_active Boolean  @default(true)
-  is_phone_verified Boolean @default(false)
-  is_email_verified Boolean @default(false)
+  id               Int     @id @default(autoincrement())
+  name             String
+  phone            String  @unique
+  email            String? @unique
+  password         String?
+  role             Role    @default(user) @map("user_role")
+  isActive         Boolean @default(true) @map("is_active")
+  isPhoneVerified  Boolean @default(false) @map("is_phone_verified")
+  isEmailVerified  Boolean @default(false) @map("is_email_verified")
+  defaultAddressId Int?    @map("default_address_id")
+
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relations
+  address     Address[]    @relation("User_addresses")
+  shopkeeper  Shopkeeper?
+  deliveryBoy DeliveryBoy?
+
+  @@map("users")
 }
 
 model Address {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String
-  line1     String
-  line2     String?
-  street    String?
-  country   String  @default("india")
-  state     String
-  city      String
-  zipCode   String
-  user      User     @relation("user_addresses", fields: [userId], references: [id])
-  userId    Int @map("user_id")
+  id      Int     @id @default(autoincrement())
+  userId  Int     @map("user_id")
+  name    String
+  phone   String
+  line1   String
+  line2   String?
+  street  String?
+  country String  @default("india")
+  state   String  @default("maharashtra")
+  city    String  @default("nagpur")
+  pinCode String  @map("pin_code")
+
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation("User_addresses", fields: [userId], references: [id])
+
+  @@map("addresses")
+}
+
+model Shopkeeper {
+  id           Int @id @default(autoincrement())
+  userId       Int @unique @map("user_id")
+  documentId   Int @unique @map("document_id")
+  bankDetailId Int @unique @map("bank_detail_id")
+
+  // Shop Details
+  shopName      String       @map("shop_name")
+  shopCategory  ShopCategory @map("shop_category")
+  shopImage     String[]     @map("shop_images")
+  fssaiNumber   String?      @unique @map("fssai_number")
+  gstNumber     String?      @unique @map("gst_number")
+  isActive      Boolean      @default(true) @map("is_active")
+  deactivatedAt DateTime?    @map("deactivated_at")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user       User               @relation(fields: [userId], references: [id])
+  document   ShopkeeperDocument @relation(fields: [documentId], references: [id])
+  bankDetail BankDetail         @relation(fields: [bankDetailId], references: [id])
+
+  @@map("shopkeepers")
+}
+
+model DeliveryBoy {
+  id Int @id @default(autoincrement())
+
+  // Personal Details
+  userId        Int      @unique @map("user_id")
+  aadharNumber  String   @unique @map("aadhar_number")
+  panNumber     String?  @unique @map("pan_number")
+  licenseNumber String   @unique @map("license_number")
+  licenseImage  String[] @map("license_images")
+
+  //  Vehicle Details
+  vechicleOwnerName String  @map("vehicle_owner_name")
+  vehicleName       String? @map("vehicle_name")
+  vehicleNo         String  @unique @map("vehicle_no")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("delivery_boys")
+}
+
+model BankDetail {
+  id                Int     @id @default(autoincrement())
+  accountHolderName String  @map("account_holder_name")
+  accountNumber     String  @map("account_number")
+  ifscCode          String  @map("ifsc_code")
+  bankName          String  @map("bank_name")
+  branchName        String  @map("branch_name")
+  bankPassbookImage String? @map("bank_passbook_image")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  shopkeeper Shopkeeper?
+
+  @@map("bank_details")
+}
+
+model ShopkeeperDocument {
+  id                       Int     @id @default(autoincrement())
+  aadharImage              String  @map("aadhar_image")
+  electricityBillImage     String  @map("electricity_bill_image")
+  businessCertificateImage String  @map("business_certificate_image")
+  panImage                 String? @map("pan_image")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  shopkeeper Shopkeeper?
+
+  @@map("shopkeeper_documents")
 }
