@@ -5,7 +5,7 @@ const _env = {
   cors_origin: process.env.CORS_ORIGIN?.includes(",")
     ? process.env.CORS_ORIGIN.split(",")
     : process.env.CORS_ORIGIN,
-  port: Number(process.env.PORT) || 5000,
+  port: Number(process.env.PORT),
   node_env: String(process.env.NODE_ENV).toLowerCase(),
   client_url: process.env.CLIENT_URL,
   isNodeEnvDevelopment:
@@ -23,7 +23,7 @@ const _env = {
 
   // smtp (email)
   smtp_host: process.env.SMTP_HOST,
-  smtp_port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
+  smtp_port: Number(process.env.SMTP_PORT),
   smtp_user: process.env.SMTP_USER,
   smtp_pass: process.env.SMTP_PASS,
 };

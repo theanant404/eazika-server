@@ -1,7 +1,7 @@
 import express, { Application } from "express";
-import cors from "cors";
 import cookieParser from "cookie-parser";
-import env from "./config/env.config.js";
+import cors from "cors";
+import env from "./config/env.config";
 
 const app: Application = express();
 
@@ -11,7 +11,7 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-app.get("/", (_, res) => res.send("Welcome to the Swasyn Server!"));
+app.get("/", (_, res) => res.send("Welcome to Eazika API v2"));
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 
 // Routing

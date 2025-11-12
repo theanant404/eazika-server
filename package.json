@@ -5,9 +5,9 @@
   "license": "MIT",
   "author": "eazika",
   "type": "commonjs",
-  "main": "/dist/index.js",
+  "main": "/dist/src/index.js",
   "scripts": {
-    "start": "tsc && node dist/index.js",
+    "start": "tsc && node dist/src/index.js",
     "dev": "nodemon --exec \"npm run start\" --ext ts --watch src",
     "prettier": "prettier --write \"src/**/*.ts\"",
     "prisma:generate": "prisma generate",
