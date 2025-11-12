@@ -8,8 +8,12 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "prisma/migrations/**/*.ts", "**/*.ts"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }

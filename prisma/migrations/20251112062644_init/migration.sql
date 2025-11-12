@@ -11,6 +11,7 @@ CREATE TABLE "users" (
     "phone" TEXT NOT NULL,
     "email" TEXT,
     "password" TEXT,
+    "image" TEXT,
     "user_role" "Role" NOT NULL DEFAULT 'user',
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "is_phone_verified" BOOLEAN NOT NULL DEFAULT false,
