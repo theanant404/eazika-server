@@ -25,6 +25,15 @@
     "type": "git",
     "url": "git+https://github.com/dev-voy/eazika-server-2O.git"
   },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "zod": "^4.1.12"
+  },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
@@ -33,13 +42,5 @@
     "prettier": "^3.6.2",
     "prisma": "^6.19.0",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.19.0",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "zod": "^4.1.12"
   }
 }
