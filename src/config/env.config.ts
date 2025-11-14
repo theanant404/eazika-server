@@ -7,25 +7,35 @@ const _env = {
     : process.env.CORS_ORIGIN,
   port: Number(process.env.PORT),
   node_env: String(process.env.NODE_ENV).toLowerCase(),
-  client_url: process.env.CLIENT_URL,
+  clientUrl: process.env.CLIENT_URL,
   isNodeEnvDevelopment:
     String(process.env.NODE_ENV).toLowerCase() === "development",
 
   // jwt
-  jwt_access_token_secret: process.env.JWT_ACCESS_TOKEN_SECRET!,
-  jwt_refresh_token_secret: process.env.JWT_REFRESH_TOKEN_SECRET!,
-  jwt_access_token_expires_in: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN,
-  jwt_refresh_token_expires_in: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN,
+  jwtSecret: String(process.env.JWT_SECRET!),
+  jwtAccessTokenExpiresIn: parseInt(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN!),
+  jwtRefreshTokenExpiresIn: parseInt(process.env.JWT_REFRESH_TOKEN_EXPIRES_IN!),
+
+  // redis
+  redisUsername: process.env.REDIS_USERNAME,
+  redisPassword: process.env.REDIS_PASSWORD,
+  redisHost: process.env.REDIS_HOST,
+  redisPort: process.env.REDIS_PORT,
+
+  // SMS provider (MSG91)
+  smsApiKey: process.env.SMS_API_KEY,
+  smsTemplateId: process.env.SMS_TEMPLATE_ID,
+  smsOtpExpiresAt: parseInt(process.env.SMS_OTP_EXPIRES_AT || "300", 10), // in seconds
 
   // google credentials
-  google_client_id: process.env.GOOGLE_CLIENT_ID,
-  google_client_secret: process.env.GOOGLE_CLIENT_SECRET,
+  googleClientId: process.env.GOOGLE_CLIENT_ID,
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
 
   // smtp (email)
-  smtp_host: process.env.SMTP_HOST,
-  smtp_port: Number(process.env.SMTP_PORT),
-  smtp_user: process.env.SMTP_USER,
-  smtp_pass: process.env.SMTP_PASS,
+  smtpHost: process.env.SMTP_HOST,
+  smtpPort: Number(process.env.SMTP_PORT),
+  smtpUser: process.env.SMTP_USER,
+  smtpPassword: process.env.SMTP_PASSWORD,
 };
 
 const env = Object.freeze(_env);
