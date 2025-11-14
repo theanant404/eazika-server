@@ -1,4 +1,4 @@
-import env from "@/config/env.config";
+import env from "../config/env.config.js";
 
 export class ApiResponse<T = unknown> {
   statusCode: number;
@@ -7,13 +7,11 @@ export class ApiResponse<T = unknown> {
   success: boolean;
 
   constructor(statusCode: number, message = "Success", data?: T) {
-    if (env.isNodeEnvDevelopment) {
+    if (env.isNodeEnvDevelopment)
       console.log(
-        `ApiResponse : ${statusCode},message: ${message}, and data: ${JSON.stringify(
-          data
-        )}`
+        `ApiResponse : ${statusCode}, Message: ${message}, 
+        and data: ${JSON.stringify(data)}`
       );
-    }
 
     this.statusCode = statusCode;
     this.message = message;
