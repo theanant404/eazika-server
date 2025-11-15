@@ -29,4 +29,12 @@ const authMiddleware = asyncHandler(async (req, _, next) => {
   next();
 });
 
-export { authMiddleware };
+const isShopkeeper = asyncHandler(async (req, _, next) => {
+  next();
+});
+
+const isDeliveryBoy = asyncHandler(async (req, _, next) => {
+  next();
+});
+
+export { authMiddleware, isShopkeeper, isDeliveryBoy };
