@@ -1,0 +1,2237 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Eazika API - A comprehensive e-commerce platform connecting customers, shopkeepers, and delivery partners. This API provides authentication, shop management, product catalog, cart operations, order management, and delivery services.",
+    "version": "2.0.0",
+    "title": "Eazika API",
+    "termsOfService": "https://eazika.com/terms/",
+    "contact": {
+      "email": "contact@eazika.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "host": "localhost:5000",
+  "basePath": "/api/v2",
+  "tags": [
+    {
+      "name": "user",
+      "description": "User authentication and profile management operations"
+    },
+    {
+      "name": "shop",
+      "description": "Shop management and product operations for shopkeepers"
+    },
+    {
+      "name": "customer",
+      "description": "Customer cart and order management operations"
+    },
+    {
+      "name": "delivery",
+      "description": "Delivery partner operations and order tracking"
+    }
+  ],
+  "schemes": ["http", "https"],
+  "paths": {
+    "/users/register": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Send registration OTP",
+        "description": "Initiates the user registration process by sending an OTP to the provided phone number",
+        "operationId": "sendRegistrationOtp",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Registration details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegistrationOtpRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully",
+            "schema": {
+              "$ref": "#/definitions/OtpResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/users/register/verify": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Verify registration OTP",
+        "description": "Verifies the OTP sent during registration and creates a new user account",
+        "operationId": "verifyRegistrationOtp",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "OTP verification details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/VerifyOtpRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully, user created",
+            "schema": {
+              "$ref": "#/definitions/AuthResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid OTP or request"
+          },
+          "500": {
+            "description": "User creation failed"
+          }
+        }
+      }
+    },
+    "/users/register/resend": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Resend registration OTP",
+        "description": "Resends the registration OTP to the provided phone number",
+        "operationId": "resendRegistrationOtp",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Registration details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegistrationOtpRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTP resent successfully",
+            "schema": {
+              "$ref": "#/definitions/OtpResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/users/login": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Send login OTP",
+        "description": "Initiates the login process by sending an OTP to the registered phone number",
+        "operationId": "sendLoginOtp",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Login phone number",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LoginOtpRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully",
+            "schema": {
+              "$ref": "#/definitions/OtpResponse"
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      }
+    },
+    "/users/login/verify": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Verify login OTP",
+        "description": "Verifies the login OTP and issues authentication tokens",
+        "operationId": "verifyLoginOtp",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "OTP verification details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/VerifyOtpRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "schema": {
+              "$ref": "#/definitions/AuthResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid OTP"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      }
+    },
+    "/users/login/resend": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Resend login OTP",
+        "description": "Resends the login OTP to the provided phone number",
+        "operationId": "resendLoginOtp",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Login phone number",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LoginOtpRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTP resent successfully",
+            "schema": {
+              "$ref": "#/definitions/OtpResponse"
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      }
+    },
+    "/users/refresh": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Refresh access token",
+        "description": "Generates new access and refresh tokens using a valid refresh token",
+        "operationId": "refreshToken",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Refresh token (optional if sent via cookie)",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/RefreshTokenRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "schema": {
+              "$ref": "#/definitions/TokenResponse"
+            }
+          },
+          "401": {
+            "description": "Invalid or missing refresh token"
+          }
+        }
+      }
+    },
+    "/users/logout": {
+      "post": {
+        "tags": ["user"],
+        "summary": "Logout user",
+        "description": "Logs out the current user by clearing authentication cookies",
+        "operationId": "logout",
+        "produces": ["application/json"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Logged out successfully",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/user/me": {
+      "get": {
+        "tags": ["user"],
+        "summary": "Get current user profile",
+        "description": "Retrieves the profile information of the currently authenticated user",
+        "operationId": "getCurrentUser",
+        "produces": ["application/json"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": ["user"],
+        "summary": "Update current user profile",
+        "description": "Updates the profile information of the currently authenticated user",
+        "operationId": "updateCurrentUser",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Updated user details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateUserRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/create-shop": {
+      "post": {
+        "tags": ["shop"],
+        "summary": "Create a new shop",
+        "description": "Creates a new shop profile for the authenticated user, converting them to a shopkeeper",
+        "operationId": "createShop",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Shop details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateShopRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Shop created successfully",
+            "schema": {
+              "$ref": "#/definitions/Shopkeeper"
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/update-shop": {
+      "put": {
+        "tags": ["shop"],
+        "summary": "Update shop details",
+        "description": "Updates the shop information for the authenticated shopkeeper",
+        "operationId": "updateShop",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Updated shop details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateShopRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Shopkeeper"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a shopkeeper"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/add-shop-product": {
+      "post": {
+        "tags": ["shop"],
+        "summary": "Add a product to shop",
+        "description": "Adds a new product to the shopkeeper's inventory",
+        "operationId": "addShopProduct",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Product details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AddShopProductRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Product added successfully",
+            "schema": {
+              "$ref": "#/definitions/ShopProduct"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a shopkeeper"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/update-shop-product/{productId}": {
+      "put": {
+        "tags": ["shop"],
+        "summary": "Update shop product",
+        "description": "Updates an existing product in the shop's inventory",
+        "operationId": "updateShopProduct",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "description": "ID of the product to update",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Updated product details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateShopProductRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product updated successfully",
+            "schema": {
+              "$ref": "#/definitions/ShopProduct"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a shopkeeper"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/update-shop-product-stock/{productId}": {
+      "put": {
+        "tags": ["shop"],
+        "summary": "Update product stock",
+        "description": "Updates the stock quantity for a specific product",
+        "operationId": "updateShopProductStock",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "description": "ID of the product to update stock",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Stock quantity",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateStockRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock updated successfully",
+            "schema": {
+              "$ref": "#/definitions/ShopProduct"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a shopkeeper"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/get-user:phone": {
+      "get": {
+        "tags": ["shop"],
+        "summary": "Get user by phone number",
+        "description": "Retrieves user information by phone number for inviting delivery partners",
+        "operationId": "getUserByPhone",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "description": "Phone number of the user",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a shopkeeper"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/shops/send-invite-to-delivery": {
+      "patch": {
+        "tags": ["shop"],
+        "summary": "Send invite to delivery partner",
+        "description": "Sends an invitation to a user to become a delivery partner for the shop",
+        "operationId": "sendInviteToDeliveryPartner",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Invitation details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/InviteDeliveryRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invitation sent successfully",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a shopkeeper"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/add-to-cart": {
+      "post": {
+        "tags": ["customer"],
+        "summary": "Add item to cart",
+        "description": "Adds a product to the customer's shopping cart",
+        "operationId": "addToCart",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Cart item details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AddToCartRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Item added to cart successfully",
+            "schema": {
+              "$ref": "#/definitions/CartItem"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/get-cart": {
+      "get": {
+        "tags": ["customer"],
+        "summary": "Get customer cart",
+        "description": "Retrieves all items in the customer's shopping cart",
+        "operationId": "getCart",
+        "produces": ["application/json"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cart retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/CartItem"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/update-cart-item/{itemId}": {
+      "put": {
+        "tags": ["customer"],
+        "summary": "Update cart item",
+        "description": "Updates the quantity or details of a specific cart item",
+        "operationId": "updateCartItem",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "description": "ID of the cart item to update",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Updated cart item details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateCartItemRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cart item updated successfully",
+            "schema": {
+              "$ref": "#/definitions/CartItem"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Cart item not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/remove-cart-item/{itemId}": {
+      "delete": {
+        "tags": ["customer"],
+        "summary": "Remove item from cart",
+        "description": "Removes a specific item from the customer's cart",
+        "operationId": "removeCartItem",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "description": "ID of the cart item to remove",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item removed successfully",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Cart item not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/clear-cart": {
+      "delete": {
+        "tags": ["customer"],
+        "summary": "Clear entire cart",
+        "description": "Removes all items from the customer's shopping cart",
+        "operationId": "clearCart",
+        "produces": ["application/json"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cart cleared successfully",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/create-order": {
+      "post": {
+        "tags": ["customer"],
+        "summary": "Create a new order",
+        "description": "Creates a new order from the customer's cart items",
+        "operationId": "createOrder",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Order details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrderRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Order created successfully",
+            "schema": {
+              "$ref": "#/definitions/Order"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Invalid order data"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/get-order/{orderId}": {
+      "get": {
+        "tags": ["customer"],
+        "summary": "Get order by ID",
+        "description": "Retrieves detailed information about a specific order",
+        "operationId": "getOrder",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "ID of the order to retrieve",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/Order"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Order not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/get-orders": {
+      "get": {
+        "tags": ["customer"],
+        "summary": "Get all customer orders",
+        "description": "Retrieves all orders placed by the customer",
+        "operationId": "getOrders",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter orders by status",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "shipped",
+              "delivered",
+              "cancelled"
+            ]
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number for pagination",
+            "required": false,
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
+            "type": "integer",
+            "format": "int32",
+            "default": 10
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Orders retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Order"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/track-order/{orderId}": {
+      "get": {
+        "tags": ["customer"],
+        "summary": "Track order status",
+        "description": "Retrieves real-time tracking information for a specific order",
+        "operationId": "trackOrder",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "ID of the order to track",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order tracking information",
+            "schema": {
+              "$ref": "#/definitions/OrderTracking"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Order not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/customers/cancel-order-by-customer/{orderId}": {
+      "put": {
+        "tags": ["customer"],
+        "summary": "Cancel order",
+        "description": "Allows customer to cancel their order before it's shipped",
+        "operationId": "cancelOrderByCustomer",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "ID of the order to cancel",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Cancellation reason",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CancelOrderRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order cancelled successfully",
+            "schema": {
+              "$ref": "#/definitions/Order"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Order cannot be cancelled"
+          },
+          "404": {
+            "description": "Order not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/delivery/create-delivery-profile": {
+      "post": {
+        "tags": ["delivery"],
+        "summary": "Create delivery partner profile",
+        "description": "Creates a delivery partner profile for the authenticated user",
+        "operationId": "createDeliveryProfile",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Delivery partner details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateDeliveryProfileRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Delivery profile created successfully",
+            "schema": {
+              "$ref": "#/definitions/DeliveryBoy"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/delivery/update-delivery-profile": {
+      "put": {
+        "tags": ["delivery"],
+        "summary": "Update delivery partner profile",
+        "description": "Updates the delivery partner's profile information",
+        "operationId": "updateDeliveryProfile",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Updated delivery partner details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateDeliveryProfileRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "schema": {
+              "$ref": "#/definitions/DeliveryBoy"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a delivery partner"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/delivery/get-assigned-orders": {
+      "get": {
+        "tags": ["delivery"],
+        "summary": "Get assigned orders",
+        "description": "Retrieves all orders assigned to the delivery partner",
+        "operationId": "getAssignedOrders",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter orders by status",
+            "required": false,
+            "type": "string",
+            "enum": ["confirmed", "shipped", "delivered"]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Orders retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Order"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Not a delivery partner"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "securityDefinitions": {
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "JWT token in the format: Bearer <token>"
+    }
+  },
+  "definitions": {
+    "ApiResponse": {
+      "type": "object",
+      "properties": {
+        "statusCode": {
+          "type": "integer",
+          "format": "int32",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "Operation successful"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    },
+    "RegistrationOtpRequest": {
+      "type": "object",
+      "required": ["name", "phone"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "example": "John Doe"
+        },
+        "phone": {
+          "type": "string",
+          "pattern": "^\\d{10}$",
+          "example": "9876543210"
+        },
+        "deviceInfo": {
+          "type": "string",
+          "example": "iPhone 13 Pro"
+        }
+      }
+    },
+    "LoginOtpRequest": {
+      "type": "object",
+      "required": ["phone"],
+      "properties": {
+        "phone": {
+          "type": "string",
+          "pattern": "^\\d{10}$",
+          "example": "9876543210"
+        }
+      }
+    },
+    "VerifyOtpRequest": {
+      "type": "object",
+      "required": ["phone", "requestId", "otp"],
+      "properties": {
+        "phone": {
+          "type": "string",
+          "pattern": "^\\d{10}$",
+          "example": "9876543210"
+        },
+        "requestId": {
+          "type": "string",
+          "example": "req_1234567890"
+        },
+        "otp": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 4,
+          "example": "1234"
+        },
+        "deviceInfo": {
+          "type": "string",
+          "example": "iPhone 13 Pro"
+        }
+      }
+    },
+    "OtpResponse": {
+      "type": "object",
+      "properties": {
+        "statusCode": {
+          "type": "integer",
+          "format": "int32",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "OTP sent successfully"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "example": "req_1234567890"
+            }
+          }
+        }
+      }
+    },
+    "AuthResponse": {
+      "type": "object",
+      "properties": {
+        "statusCode": {
+          "type": "integer",
+          "format": "int32",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "Authentication successful"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "accessToken": {
+              "type": "string",
+              "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            },
+            "expiresIn": {
+              "type": "string",
+              "example": "7d"
+            },
+            "user": {
+              "$ref": "#/definitions/UserBasic"
+            }
+          }
+        }
+      }
+    },
+    "TokenResponse": {
+      "type": "object",
+      "properties": {
+        "statusCode": {
+          "type": "integer",
+          "format": "int32",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "Token refreshed successfully"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "accessToken": {
+              "type": "string",
+              "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            },
+            "expiresIn": {
+              "type": "string",
+              "example": "7d"
+            }
+          }
+        }
+      }
+    },
+    "RefreshTokenRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string",
+          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        }
+      }
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "example": "John Doe"
+        },
+        "phone": {
+          "type": "string",
+          "example": "9876543210"
+        },
+        "email": {
+          "type": "string",
+          "example": "john@example.com"
+        },
+        "image": {
+          "type": "string",
+          "example": "https://example.com/profile.jpg"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "shopkeeper", "delivery_boy", "admin"],
+          "example": "user"
+        },
+        "isActive": {
+          "type": "boolean",
+          "example": true
+        },
+        "isPhoneVerified": {
+          "type": "boolean",
+          "example": true
+        },
+        "isEmailVerified": {
+          "type": "boolean",
+          "example": false
+        },
+        "defaultAddressId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "UserBasic": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "phone": {
+          "type": "string",
+          "example": "9876543210"
+        }
+      }
+    },
+    "UpdateUserRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "John Doe"
+        },
+        "email": {
+          "type": "string",
+          "example": "john@example.com"
+        },
+        "image": {
+          "type": "string",
+          "example": "https://example.com/profile.jpg"
+        }
+      }
+    },
+    "Address": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "userId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "example": "Home"
+        },
+        "phone": {
+          "type": "string",
+          "example": "9876543210"
+        },
+        "line1": {
+          "type": "string",
+          "example": "123 Main Street"
+        },
+        "line2": {
+          "type": "string",
+          "example": "Apartment 4B"
+        },
+        "street": {
+          "type": "string",
+          "example": "Park Avenue"
+        },
+        "city": {
+          "type": "string",
+          "example": "nagpur"
+        },
+        "state": {
+          "type": "string",
+          "example": "maharashtra"
+        },
+        "country": {
+          "type": "string",
+          "example": "india"
+        },
+        "pinCode": {
+          "type": "string",
+          "example": "440001"
+        }
+      }
+    },
+    "Shopkeeper": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "userId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "shopName": {
+          "type": "string",
+          "example": "Fresh Mart"
+        },
+        "shopCategory": {
+          "type": "string",
+          "enum": [
+            "grocery",
+            "electronics",
+            "furniture",
+            "clothing",
+            "bakery",
+            "hmoeAppliances",
+            "others"
+          ],
+          "example": "grocery"
+        },
+        "shopImage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["https://example.com/shop1.jpg"]
+        },
+        "fssaiNumber": {
+          "type": "string",
+          "example": "12345678901234"
+        },
+        "gstNumber": {
+          "type": "string",
+          "example": "22AAAAA0000A1Z5"
+        },
+        "isActive": {
+          "type": "boolean",
+          "example": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "CreateShopRequest": {
+      "type": "object",
+      "required": ["shopName", "shopCategory"],
+      "properties": {
+        "shopName": {
+          "type": "string",
+          "example": "Fresh Mart"
+        },
+        "shopCategory": {
+          "type": "string",
+          "enum": [
+            "grocery",
+            "electronics",
+            "furniture",
+            "clothing",
+            "bakery",
+            "hmoeAppliances",
+            "others"
+          ],
+          "example": "grocery"
+        },
+        "shopImage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fssaiNumber": {
+          "type": "string",
+          "example": "12345678901234"
+        },
+        "gstNumber": {
+          "type": "string",
+          "example": "22AAAAA0000A1Z5"
+        },
+        "bankDetail": {
+          "$ref": "#/definitions/BankDetail"
+        },
+        "documents": {
+          "$ref": "#/definitions/ShopkeeperDocument"
+        }
+      }
+    },
+    "UpdateShopRequest": {
+      "type": "object",
+      "properties": {
+        "shopName": {
+          "type": "string",
+          "example": "Fresh Mart Updated"
+        },
+        "shopCategory": {
+          "type": "string",
+          "enum": [
+            "grocery",
+            "electronics",
+            "furniture",
+            "clothing",
+            "bakery",
+            "hmoeAppliances",
+            "others"
+          ]
+        },
+        "shopImage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fssaiNumber": {
+          "type": "string"
+        },
+        "gstNumber": {
+          "type": "string"
+        }
+      }
+    },
+    "BankDetail": {
+      "type": "object",
+      "required": [
+        "accountHolderName",
+        "accountNumber",
+        "ifscCode",
+        "bankName",
+        "branchName"
+      ],
+      "properties": {
+        "accountHolderName": {
+          "type": "string",
+          "example": "John Doe"
+        },
+        "accountNumber": {
+          "type": "string",
+          "example": "1234567890"
+        },
+        "ifscCode": {
+          "type": "string",
+          "example": "SBIN0001234"
+        },
+        "bankName": {
+          "type": "string",
+          "example": "State Bank of India"
+        },
+        "branchName": {
+          "type": "string",
+          "example": "Main Branch"
+        },
+        "bankPassbookImage": {
+          "type": "string",
+          "example": "https://example.com/passbook.jpg"
+        }
+      }
+    },
+    "ShopkeeperDocument": {
+      "type": "object",
+      "required": [
+        "aadharImage",
+        "electricityBillImage",
+        "businessCertificateImage"
+      ],
+      "properties": {
+        "aadharImage": {
+          "type": "string",
+          "example": "https://example.com/aadhar.jpg"
+        },
+        "electricityBillImage": {
+          "type": "string",
+          "example": "https://example.com/electricity.jpg"
+        },
+        "businessCertificateImage": {
+          "type": "string",
+          "example": "https://example.com/certificate.jpg"
+        },
+        "panImage": {
+          "type": "string",
+          "example": "https://example.com/pan.jpg"
+        }
+      }
+    },
+    "ShopProduct": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "shopkeeperId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "productCategoryId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "globalProductId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "isGlobalProduct": {
+          "type": "boolean",
+          "example": true
+        },
+        "name": {
+          "type": "string",
+          "example": "Fresh Tomatoes"
+        },
+        "description": {
+          "type": "string",
+          "example": "Organic tomatoes from local farms"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stock": {
+          "type": "integer",
+          "format": "int32",
+          "example": 100
+        },
+        "isActive": {
+          "type": "boolean",
+          "example": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "AddShopProductRequest": {
+      "type": "object",
+      "required": ["productCategoryId", "name", "stock"],
+      "properties": {
+        "productCategoryId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "globalProductId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "isGlobalProduct": {
+          "type": "boolean",
+          "example": false
+        },
+        "name": {
+          "type": "string",
+          "example": "Fresh Tomatoes"
+        },
+        "description": {
+          "type": "string",
+          "example": "Organic tomatoes from local farms"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stock": {
+          "type": "integer",
+          "format": "int32",
+          "example": 100
+        },
+        "prices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductPrice"
+          }
+        }
+      }
+    },
+    "UpdateShopProductRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isActive": {
+          "type": "boolean"
+        }
+      }
+    },
+    "UpdateStockRequest": {
+      "type": "object",
+      "required": ["stock"],
+      "properties": {
+        "stock": {
+          "type": "integer",
+          "format": "int32",
+          "example": 150
+        }
+      }
+    },
+    "ProductPrice": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "price": {
+          "type": "number",
+          "format": "float",
+          "example": 50.0
+        },
+        "discount": {
+          "type": "number",
+          "format": "float",
+          "example": 5.0
+        },
+        "weight": {
+          "type": "integer",
+          "format": "int32",
+          "example": 500
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["grams", "kg", "ml", "litre", "piece"],
+          "example": "grams"
+        },
+        "currency": {
+          "type": "string",
+          "example": "INR"
+        }
+      }
+    },
+    "InviteDeliveryRequest": {
+      "type": "object",
+      "required": ["userId"],
+      "properties": {
+        "userId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        }
+      }
+    },
+    "CartItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "userId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "shopProductId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 10
+        },
+        "productPriceId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "int32",
+          "example": 2
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "AddToCartRequest": {
+      "type": "object",
+      "required": ["shopProductId", "productPriceId", "quantity"],
+      "properties": {
+        "shopProductId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 10
+        },
+        "productPriceId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "int32",
+          "example": 2,
+          "minimum": 1
+        }
+      }
+    },
+    "UpdateCartItemRequest": {
+      "type": "object",
+      "required": ["quantity"],
+      "properties": {
+        "quantity": {
+          "type": "integer",
+          "format": "int32",
+          "example": 3,
+          "minimum": 1
+        }
+      }
+    },
+    "Order": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "userId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "assignedDeliveryBoyId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 3
+        },
+        "totalProducts": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        },
+        "totalAmount": {
+          "type": "number",
+          "format": "float",
+          "example": 500.0
+        },
+        "addressId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["cash_on_delivery", "online_payment"],
+          "example": "cash_on_delivery"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+          "example": "pending"
+        },
+        "cancelBy": {
+          "type": "string",
+          "enum": ["user", "shopkeeper", "delivery_boy", "admin"],
+          "example": "user"
+        },
+        "cancelReason": {
+          "type": "string",
+          "example": "Changed my mind"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "orderItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderItem"
+          }
+        }
+      }
+    },
+    "OrderItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "shopProductId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 10
+        },
+        "productPriceId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "int32",
+          "example": 2
+        },
+        "orderId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        }
+      }
+    },
+    "CreateOrderRequest": {
+      "type": "object",
+      "required": ["addressId", "paymentMethod"],
+      "properties": {
+        "addressId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["cash_on_delivery", "online_payment"],
+          "example": "cash_on_delivery"
+        }
+      }
+    },
+    "CancelOrderRequest": {
+      "type": "object",
+      "required": ["reason"],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "example": "Changed my mind"
+        }
+      }
+    },
+    "OrderTracking": {
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+          "example": "shipped"
+        },
+        "currentLocation": {
+          "type": "string",
+          "example": "Out for delivery"
+        },
+        "estimatedDelivery": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deliveryBoy": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "example": "Rahul Kumar"
+            },
+            "phone": {
+              "type": "string",
+              "example": "9876543210"
+            }
+          }
+        }
+      }
+    },
+    "DeliveryBoy": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "userId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "shopkeeperId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        },
+        "aadharNumber": {
+          "type": "string",
+          "example": "123456789012"
+        },
+        "panNumber": {
+          "type": "string",
+          "example": "ABCDE1234F"
+        },
+        "licenseNumber": {
+          "type": "string",
+          "example": "MH20200012345"
+        },
+        "licenseImage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vechicleOwnerName": {
+          "type": "string",
+          "example": "Rahul Kumar"
+        },
+        "vehicleName": {
+          "type": "string",
+          "example": "Honda Activa"
+        },
+        "vehicleNo": {
+          "type": "string",
+          "example": "MH12AB1234"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "CreateDeliveryProfileRequest": {
+      "type": "object",
+      "required": [
+        "shopkeeperId",
+        "aadharNumber",
+        "licenseNumber",
+        "licenseImage",
+        "vechicleOwnerName",
+        "vehicleNo"
+      ],
+      "properties": {
+        "shopkeeperId": {
+          "type": "integer",
+          "format": "int32",
+          "example": 5
+        },
+        "aadharNumber": {
+          "type": "string",
+          "example": "123456789012"
+        },
+        "panNumber": {
+          "type": "string",
+          "example": "ABCDE1234F"
+        },
+        "licenseNumber": {
+          "type": "string",
+          "example": "MH20200012345"
+        },
+        "licenseImage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vechicleOwnerName": {
+          "type": "string",
+          "example": "Rahul Kumar"
+        },
+        "vehicleName": {
+          "type": "string",
+          "example": "Honda Activa"
+        },
+        "vehicleNo": {
+          "type": "string",
+          "example": "MH12AB1234"
+        }
+      }
+    },
+    "UpdateDeliveryProfileRequest": {
+      "type": "object",
+      "properties": {
+        "panNumber": {
+          "type": "string"
+        },
+        "licenseImage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vehicleName": {
+          "type": "string"
+        },
+        "vehicleNo": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "Find out more about Eazika API",
+    "url": "https://eazika.com/docs"
+  }
+}

@@ -3,6 +3,9 @@ import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import env from "./config/env.config";
+import { swaggerUi, swaggerSpec } from "./swagger";
+
+const { cors_origin, isNodeEnvDevelopment } = env;
 
 const app: Application = express();
 
@@ -16,7 +19,7 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
-app.use(cors({ origin: env.cors_origin, credentials: true }));
+app.use(cors({ origin: cors_origin, credentials: true }));
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
@@ -24,6 +27,12 @@ app.use(cookieParser());
 
 app.get("/", (_, res) => res.send("Welcome to Eazika API v2"));
 app.get("/health", (_, res) => res.json({ status: "ok" }));
+
+const options = { explorer: true };
+
+if (isNodeEnvDevelopment) {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, options));
+}
 
 // Routing
 import routes from "./routes/index.js";

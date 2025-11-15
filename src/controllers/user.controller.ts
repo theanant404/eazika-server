@@ -201,6 +201,9 @@ const logout = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Logged out successfully"));
 });
 
+const getCurrentUser = asyncHandler(async (req, res) => {});
+const updateCurrentUser = asyncHandler(async (req, res) => {});
+
 export {
   sendRegistrationOtp,
   verifyRegistrationOtp,
@@ -210,4 +213,6 @@ export {
   resendLoginOtp,
   refreshToken,
   logout,
+  getCurrentUser,
+  updateCurrentUser,
 };

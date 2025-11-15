@@ -18,13 +18,8 @@ router.post("/refresh", user.refreshToken); // refresh access token
 router.post("/logout", auth.authMiddleware, user.logout); // logout / revoke tokens
 
 // // User profile (optional but useful)
-// router.get("/users/me", user.getCurrentUser);                      // get current user's profile
-// router.patch("/users/me", user.updateCurrentUser);                 // update current user's profile
+router.get("/user/me", auth.authMiddleware, user.getCurrentUser); // get current user's profile
+router.patch("/user/me", auth.authMiddleware, user.updateCurrentUser); // update current user's profile
 // router.delete("/users/me", user.deleteCurrentUser);                // delete account
 
 export default router;
-
-// router.post("/request-otp", user.requestOtp);
-// router.post("/verify-otp", user.verifyOtpHandler);
-// router.post("/refresh", user.refreshHandler);
-// router.post("/logout", user.logoutHandler);
