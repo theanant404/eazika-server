@@ -10,7 +10,7 @@ datasource db {
 
 //  Eazika Prisma Schema
 
-// Enums
+// Eazika Enums
 
 enum Role {
   user //customer
@@ -29,7 +29,35 @@ enum ShopCategory {
   others
 }
 
-// Models
+enum OrderStatus {
+  pending
+  confirmed
+  shipped
+  delivered
+  cancelled
+}
+
+enum PaymentMethod {
+  cash_on_delivery
+  online_payment
+}
+
+enum CancelBy {
+  user
+  shopkeeper
+  delivery_boy
+  admin
+}
+
+enum ProductUnit {
+  grams
+  kg
+  ml
+  litre
+  piece
+}
+
+// Eazika Data Models
 
 model User {
   id               Int     @id @default(autoincrement())
@@ -106,6 +134,7 @@ model Shopkeeper {
   document     ShopkeeperDocument @relation(fields: [documentId], references: [id])
   bankDetail   BankDetail         @relation(fields: [bankDetailId], references: [id])
   shopProducts ShopProduct[]
+  deliveryBoys DeliveryBoy[]
 
   @@map("shopkeepers")
 }
@@ -115,6 +144,7 @@ model DeliveryBoy {
 
   // Personal Details
   userId        Int      @unique @map("user_id")
+  shopkeeperId  Int      @map("shopkeeper_id")
   aadharNumber  String   @unique @map("aadhar_number")
   panNumber     String?  @unique @map("pan_number")
   licenseNumber String   @unique @map("license_number")
@@ -130,7 +160,9 @@ model DeliveryBoy {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user User @relation(fields: [userId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  shopkeeper Shopkeeper @relation(fields: [shopkeeperId], references: [id])
+  orders     Order[]
 
   @@map("delivery_boys")
 }
@@ -171,140 +203,144 @@ model ShopkeeperDocument {
   @@map("shopkeeper_documents")
 }
 
-enum ProductCategory {
-  electronics
-  clothing
-  groceries
-  furniture
-  bakery
-  homeAppliances
-  others
-}
-
 model ProductPrice {
-  id              Int            @id @default(autoincrement())
-  basePrice       Float          @default(0.0) @map("base_price")
-  weight          Int // in grams 
-  discount        Float          @default(0.0)
-  currency        String         @default("INR")
-  globalProduct   GlobalProduct? @relation(fields: [globalProductId], references: [id])
-  globalProductId Int
-  shopProduct     ShopProduct    @relation(fields: [shopProductId], references: [id])
-  shopProductId   Int
+  id              Int         @id @default(autoincrement())
+  price           Float
+  discount        Float       @default(0.0)
+  weight          Int
+  unit            ProductUnit @default(grams)
+  currency        String      @default("INR")
+  globalProductId Int?
+  shopProductId   Int?
+
+  // Relations
+  globalProduct GlobalProduct? @relation(fields: [globalProductId], references: [id])
+  shopProduct   ShopProduct?   @relation(fields: [shopProductId], references: [id])
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
 }
 
 model GlobalProduct {
-  id          Int             @id @default(autoincrement())
-  category    ProductCategory @map("product_category")
-  name        String
-  description String?
-  images      String[]
-  priceIds    Int[]           @map("product_pricing")
+  id                Int      @id @default(autoincrement())
+  productCategoryId Int      @unique @map("category_id")
+  name              String
+  description       String?
+  images            String[]
+  priceIds          Int[]    @map("product_pricing")
 
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  prices       ProductPrice[]
-  shopProducts ShopProduct[]
+  prices            ProductPrice[]
+  shopProducts      ShopProduct[]
+  productCategories ProductCategory @relation(fields: [productCategoryId], references: [id])
 
   @@map("global_products")
 }
 
 model ShopProduct {
-  id           Int @id @default(autoincrement())
-  shopkeeperId Int @map("shopkeeper_id")
+  id                Int     @id @default(autoincrement())
+  shopkeeperId      Int     @map("shopkeeper_id")
+  productCategoryId Int     @unique @map("category_id")
+  globalProductId   Int?    @map("global_product_id")
+  isGlobalProduct   Boolean @default(true) @map("is_global_product")
 
-  category        ProductCategory @map("product_category")
-  globalProductId Int?            @map("global_product_id")
-  isGlobalProduct Boolean         @default(true) @map("is_global_product") // 
-  name            String?
-  description     String?
-  images          String[]
-  priceIds        Int[]           @map("price_ids")
-  stock           Int             @default(0)
-  isActive        Boolean         @default(true) @map("is_active")
+  name        String?
+  description String?
+  images      String[]
+  priceIds    Int[]    @map("price_ids")
+  stock       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
 
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  shopkeeper        Shopkeeper          @relation(fields: [shopkeeperId], references: [id])
+  shopkeeper        Shopkeeper      @relation(fields: [shopkeeperId], references: [id])
   prices            ProductPrice[]
-  globalProduct     GlobalProduct?      @relation(fields: [globalProductId], references: [id])
+  globalProduct     GlobalProduct?  @relation(fields: [globalProductId], references: [id])
   cartItems         CartItem[]
-  orderShopProducts OrderShopProducts[]
+  productCategories ProductCategory @relation(fields: [productCategoryId], references: [id])
+  orderItems        OrderItem[]
 
   @@map("shop_products")
 }
 
+model ProductCategory {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+
+  // Relations
+  shopProduct   ShopProduct[]
+  globalProduct GlobalProduct[]
+
+  @@map("product_categories")
+}
+
 model CartItem {
-  id         Int @id @default(autoincrement())
-  userId     Int @map("user_id")
-  shopProdId Int @map("shop_product_id")
-  quantity   Int @default(1)
+  id             Int @id @default(autoincrement())
+  userId         Int @map("user_id")
+  shopProductId  Int @map("shop_product_id")
+  productPriceId Int @map("product_price_id")
+  quantity       Int @default(1)
 
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  user        User        @relation(fields: [userId], references: [id])
-  shopProduct ShopProduct @relation(fields: [shopProdId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  shopProduct  ShopProduct  @relation(fields: [shopProductId], references: [id])
+  productPrice ProductPrice @relation(fields: [productPriceId], references: [id])
 
   @@map("cart_items")
 }
 
-enum OrderStatus {
-  pending
-  confirmed
-  shipped
-  delivered
-  cancelled
-}
+model OrderItem {
+  id             Int  @id @default(autoincrement())
+  shopProductId  Int  @map("shop_product_id")
+  productPriceId Int  @map("product_price_id")
+  quantity       Int  @default(1)
+  orderId        Int?
 
-enum PaymentMethod {
-  cash_on_delivery
-  online_payment
+  // Relations
+  shopProduct  ShopProduct  @relation(fields: [shopProductId], references: [id])
+  productPrice ProductPrice @relation(fields: [productPriceId], references: [id])
+  order        Order?       @relation(fields: [orderId], references: [id])
+
+  @@map("order_items")
 }
 
 model Order {
-  id                 Int           @id @default(autoincrement())
-  userId             Int           @map("user_id")
-  totalProducts      Int[]         @map("total_products")
-  totalAmount        Float         @map("total_amount")
-  status             OrderStatus   @default(pending) @map("order_status") // pending, confirmed, shipped, delivered, cancelled
-  addressToDeliverId Int           @map("address_to_deliver_id")
-  orderDeliveredAt   DateTime?     @map("order_delivered_at")
-  paymentMethod      PaymentMethod @map("payment_method")
+  id                    Int           @id @default(autoincrement())
+  userId                Int           @map("user_id")
+  assignedDeliveryBoyId Int?          @map("assigned_delivery_boy_id")
+  totalProducts         Int           @map("total_products")
+  totalAmount           Float         @map("total_amount")
+  addressId             Int           @map("address_id")
+  paymentMethod         PaymentMethod @map("payment_method")
+  cancelBy              CancelBy?     @map("cancel_by")
+  cancelReason          String?       @map("cancel_reason")
+  status                OrderStatus   @default(pending) @map("order_status")
 
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  user              User                @relation(fields: [userId], references: [id])
-  address           Address             @relation(fields: [addressToDeliverId], references: [id])
-  // shopProducts ShopProduct[] @relation("Order_ShopProducts", references: [id])
-  orderShopProducts OrderShopProducts[]
+  user        User         @relation(fields: [userId], references: [id])
+  address     Address      @relation(fields: [addressId], references: [id])
+  deliveryBoy DeliveryBoy? @relation(fields: [assignedDeliveryBoyId], references: [id])
+  orderItems  OrderItem[]
 
   @@map("orders")
 }
 
-model OrderShopProducts {
-  orderId    Int @map("order_id")
-  shopProdId Int @map("shop_product_id")
-  quantity   Int @default(1)
-
-  // Relations
-  order       Order       @relation(fields: [orderId], references: [id])
-  shopProduct ShopProduct @relation(fields: [shopProdId], references: [id])
-
-  @@id([orderId, shopProdId])
-  @@map("order_shop_products")
-}
+// * ----- Notification & OTP Models ----- *
 
 model PhoneOtpHistory {
   id        Int      @id @default(autoincrement())
@@ -317,4 +353,31 @@ model PhoneOtpHistory {
   used      Boolean  @default(false)
 
   @@map("phone_otp_histories")
+}
+
+model EmailOtpHistory {
+  id        Int      @id @default(autoincrement())
+  email     String
+  otpHash   String
+  requestId String   @unique @map("request_id")
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  @@map("email_otp_histories")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now())
+
+  // Relations
+  // user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
 }
