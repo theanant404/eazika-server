@@ -30,10 +30,18 @@ const authMiddleware = asyncHandler(async (req, _, next) => {
 });
 
 const isShopkeeper = asyncHandler(async (req, _, next) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  if (req.user.role !== "shopkeeper") {
+    throw new ApiError(403, "Forbidden: Only shopkeepers can access this resource");
+  }
   next();
 });
 
 const isDeliveryBoy = asyncHandler(async (req, _, next) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  if (req.user.role !== "delivery_boy") {
+    throw new ApiError(403, "Forbidden: Only delivery boys can access this resource");
+  }
   next();
 });
 
