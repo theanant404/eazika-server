@@ -1,29 +1,28 @@
 # Eazika Server v2.0
 
-A robust and scalable backend server for the Eazika e-commerce platform, built with Node.js, Express, TypeScript, and Prisma ORM.
-
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Database Setup](#database-setup)
-- [Running the Application](#running-the-application)
-- [API Documentation](#api-documentation)
-- [Project Structure](#project-structure)
-- [Available Scripts](#available-scripts)
-- [Contributing](#contributing)
-- [License](#license)
+- [🌟 Overview](#overview)
+- [✨ Features](#features)
+- [🛠 Tech Stack](#tech-stack)
+- [🏗 Architecture](#architecture)
+- [📦 Prerequisites](#prerequisites)
+- [🚀 Installation](#installation)
+- [⚙️ Configuration](#configuration)
+- [💾 Database Setup](#database-setup)
+- [🏃 Running the Application](#running-the-application)
+- [📚 API Documentation](#api-documentation)
+- [📁 Project Structure](#project-structure)
+- [📜 Available Scripts](#available-scripts)
+- [📄 License](#license)
 
-## 🌟 Overview
+<!-- Explicit anchor IDs to ensure redirects work reliably -->
+
+## <a id="overview"></a> 🌟 Overview
 
 Eazika Server is the backend API for a multi-vendor e-commerce platform that connects customers with local shopkeepers and delivery partners. The platform supports various business categories including grocery stores, electronics, furniture, clothing, bakeries, and more.
 
-## ✨ Features
+## <a id="features"></a> ✨ Features
 
 - **Multi-Role System**: Support for users, shopkeepers, delivery boys, and administrators
 - **Authentication & Authorization**: JWT-based authentication with access and refresh tokens
@@ -38,7 +37,7 @@ Eazika Server is the backend API for a multi-vendor e-commerce platform that con
 - **Redis Caching**: Redis integration for session management and caching
 - **Type Safety**: Full TypeScript support with Prisma-generated types
 
-## 🛠 Tech Stack
+## <a id="tech-stack"></a> 🛠 Tech Stack
 
 - **Runtime**: Node.js
 - **Framework**: Express.js
@@ -52,7 +51,7 @@ Eazika Server is the backend API for a multi-vendor e-commerce platform that con
 - **SMS Provider**: MSG91
 - **Rate Limiting**: express-rate-limit
 
-## 🏗 Architecture
+## <a id="architecture"></a> 🏗 Architecture
 
 The application follows a modular architecture with clear separation of concerns:
 
@@ -80,7 +79,7 @@ The application follows a modular architecture with clear separation of concerns
 └─────────────────────────────────┘
 ```
 
-## 📦 Prerequisites
+## <a id="prerequisites"></a> 📦 Prerequisites
 
 Before you begin, ensure you have the following installed:
 
@@ -90,7 +89,7 @@ Before you begin, ensure you have the following installed:
 - **Redis** (v6 or higher)
 - **Docker & Docker Compose** (optional, for containerized setup)
 
-## 🚀 Installation
+## <a id="installation"></a> 🚀 Installation
 
 1. **Clone the repository**
 
@@ -105,7 +104,7 @@ cd eazika-server-2O
 npm install
 ```
 
-## ⚙️ Configuration
+## <a id="configuration"></a> ⚙️ Configuration
 
 1. **Create environment file**
 
@@ -145,7 +144,7 @@ SMS_TEMPLATE_ID="your_template_id"
 SMS_OTP_EXPIRES_AT="300"  # 5 minutes in seconds
 ```
 
-## 💾 Database Setup
+## <a id="database-setup"></a> 💾 Database Setup
 
 ### Using Docker Compose (Recommended)
 
@@ -191,7 +190,7 @@ To view and manage your database visually:
 npm run prisma:studio
 ```
 
-## 🏃 Running the Application
+## <a id="running-the-application"></a> 🏃 Running the Application
 
 ### Development Mode
 
@@ -207,7 +206,7 @@ The server will start on `http://localhost:5000` (or your configured PORT) with 
 npm start
 ```
 
-## 📚 API Documentation
+## <a id="api-documentation"></a> 📚 API Documentation
 
 Once the server is running in development mode, access the interactive API documentation at:
 
@@ -230,7 +229,7 @@ The API follows RESTful conventions and is versioned under `/api/v2`.
 curl http://localhost:5000/health
 ```
 
-## 📁 Project Structure
+## <a id="project-structure"></a> 📁 Project Structure
 
 ```
 eazika-server-2O/
@@ -274,7 +273,7 @@ eazika-server-2O/
 └── README.md              # This file
 ```
 
-## 📜 Available Scripts
+## <a id="available-scripts"></a> 📜 Available Scripts
 
 ```bash
 # Development
@@ -292,24 +291,6 @@ npm run prisma:studio   # Open Prisma Studio GUI
 npm run prettier        # Format code with Prettier
 ```
 
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Coding Standards
-
-- Use TypeScript for type safety
-- Follow the existing code structure
-- Write meaningful commit messages
-- Add comments for complex logic
-- Update documentation as needed
-
-## 📄 License
+## <a id="license"></a> 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
