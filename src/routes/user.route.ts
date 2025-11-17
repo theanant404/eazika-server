@@ -18,8 +18,17 @@ router.post("/refresh", user.refreshToken); // refresh access token
 router.post("/logout", auth.authMiddleware, user.logout); // logout / revoke tokens
 
 // // User profile (optional but useful)
-router.get("/user/me", auth.authMiddleware, user.getCurrentUser); // get current user's profile
-router.patch("/user/me", auth.authMiddleware, user.updateCurrentUser); // update current user's profile
-// router.delete("/users/me", user.deleteCurrentUser);                // delete account
+const userRoute = router.use("/user", auth.authMiddleware); // protect all /user routes
+
+userRoute.get("/", user.getCurrentUser); // get current user's profile
+userRoute.patch("/update-user", user.updateCurrentUser); // update current user's profile
+userRoute.patch("/update-profile-picture", user.updateProfilePicture); // update profile picture
+userRoute.post("/add-new-address", user.addNewAddress); // add new address for current user
+userRoute.patch("/update-address/:addressId", user.updateAddress); // update address by ID
+userRoute.delete("/delete-address/:addressId", user.deleteAddress); // delete address by ID
+
+// router.get("/user/me", auth.authMiddleware, user.getCurrentUser); // get current user's profile
+// router.patch("/user/me", auth.authMiddleware, user.updateCurrentUser); // update current user's profile
+// router.
 
 export default router;
