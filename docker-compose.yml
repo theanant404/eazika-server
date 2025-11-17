@@ -1,0 +1,47 @@
+version: '3.7'
+
+services:
+  # docker compose file for postgres and adminer with port mapping
+  # db:
+  #   image: postgres
+  #   restart: always
+  #   volumes:
+  #     - ./data/db:/var/lib/postgresql/data
+  #   ports:
+  #     - 5432:5432  # make sure you don't have another container running on 5432
+
+  #   environment:
+  #     - POSTGRES_DB=eazika_dev
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=root
+  #   #  url = postgres://postgres:root@localhost:5432/eazika_dev
+
+  # adminer:
+  #   image: adminer
+  #   restart: always
+  #   ports:
+  #     - 8080:8080
+
+  # docker compose file for redis and redis-insight with port mapping
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-volume-data:/data
+
+    # url = redis://default:eazika_redis_password@localhost:6379
+
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - 8001:8001
+    volumes:
+      - redisinsight-data:/db
+
+volumes:
+  redis-volume-data:
+  redisinsight-data:

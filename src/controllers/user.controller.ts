@@ -18,7 +18,7 @@ const cookieOptions: CookieOptions = {
   maxAge: jwtAccessTokenExpiresIn * 1000,
 };
 
-// Registration OTP controllers
+/* -------- Registration OTP controllers -------- */
 const sendRegistrationOtp = asyncHandler(async (req, res) => {
   // write a steps to send registration otp
   // 1. validate input
@@ -86,7 +86,7 @@ const resendRegistrationOtp = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "OTP resent successfully", { requestId }));
 });
 
-// Login OTP controllers (similar to registration, omitted for brevity)
+/* -------- Login OTP controllers -------- */
 const sendLoginOtp = asyncHandler(async (req, res) => {
   // write a steps to send login otp
   // 1. validate input
@@ -190,6 +190,7 @@ const refreshToken = asyncHandler(async (req, res) => {
     );
 });
 
+/* -------- Logout Controller -------- */
 const logout = asyncHandler(async (req, res) => {
   // write a steps to logout
   // 1. clear cookies
@@ -201,8 +202,186 @@ const logout = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Logged out successfully"));
 });
 
-const getCurrentUser = asyncHandler(async (req, res) => {});
-const updateCurrentUser = asyncHandler(async (req, res) => {});
+/* -------- Current User Controllers -------- */
+const getCurrentUser = asyncHandler(async (req, res) => {
+  // write a steps to get current user
+  // 1. get user from req (set by auth middleware)
+  // 2. return response
+
+  const userId = req.user?.id;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      phone: true,
+      name: true,
+      role: true,
+      createdAt: true,
+      email: true,
+      defaultAddressId: true,
+      address: {
+        where: { isDeleted: false },
+      },
+    },
+  });
+  if (!user) throw new ApiError(404, "user_not_found");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User fetched successfully", { user }));
+});
+
+const updateCurrentUser = asyncHandler(async (req, res) => {
+  // write a steps to update current user
+  // 1. validate input
+  // 2. get user from req (set by auth middleware)
+  // 3. update user
+  // 4. return response
+
+  const userId = req.user?.id;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  const { name, email, defaultAddressId } = userSchemas.updateUserSchema.parse(
+    req.body
+  );
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { name, email, defaultAddressId },
+    select: { id: true, phone: true, name: true, role: true, createdAt: true },
+  });
+  if (!user) throw new ApiError(404, "user_not_found");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User updated successfully", { user }));
+});
+
+const updateProfilePicture = asyncHandler(async (req, res) => {
+  // write a steps to update profile picture
+  // 1. validate input
+  // 2. get user from req (set by auth middleware)
+  // 3. update user profile picture
+  // 4. return response
+
+  const userId = req.user?.id;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  const { imageUrl } = req.body;
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { image: imageUrl },
+    select: { id: true, phone: true, name: true, email: true, role: true },
+  });
+  if (!user) throw new ApiError(404, "user_not_found");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Profile picture updated successfully", { user })
+    );
+});
+
+const addNewAddress = asyncHandler(async (req, res) => {
+  // write a steps to add new address for current user
+  // 1. validate input
+  // 2. get user from req (set by auth middleware)
+  // 3. add new address
+  // 4. return response
+
+  const userId = req.user?.id;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  const payload = userSchemas.userAddressSchema.parse(req.body);
+
+  const newAddress = await prisma.address.create({
+    data: {
+      userId,
+      name: payload.name,
+      phone: payload.phone,
+      line1: payload.line1,
+      line2: payload.line2,
+      street: payload.street,
+      city: payload.city,
+      state: payload.state,
+      country: payload.country,
+      pinCode: payload.pinCode,
+      geoLocation: payload.geoLocation,
+    },
+  });
+  if (!newAddress) throw new ApiError(500, "address_creation_failed");
+  return res.status(201).json(
+    new ApiResponse(201, "Address added successfully", {
+      address: newAddress,
+    })
+  );
+});
+
+const updateAddress = asyncHandler(async (req, res) => {
+  // write a steps to update address by ID for current user
+  // 1. validate input
+  // 2. get user from req (set by auth middleware)
+  // 3. update address
+  // 4. return response
+
+  const userId = req.user?.id;
+  const addressId = Number(req.params.addressId);
+
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  if (isNaN(addressId) || addressId <= 0)
+    throw new ApiError(400, "Invalid address ID");
+
+  const payload = userSchemas.userAddressSchema.parse(req.body);
+
+  const address = await prisma.address.findUnique({
+    where: { id: addressId },
+  });
+  if (!address || address.userId !== userId)
+    throw new ApiError(404, "address_not_found");
+
+  const updatedAddress = await prisma.address.update({
+    where: { id: addressId },
+    data: { ...payload },
+  });
+  return res.status(200).json(
+    new ApiResponse(200, "Address updated successfully", {
+      address: updatedAddress,
+    })
+  );
+});
+
+const deleteAddress = asyncHandler(async (req, res) => {
+  // write a steps to delete address by ID for current user
+  // 1. get user from req (set by auth middleware)
+  // 2. delete address
+  // 3. return response
+
+  const userId = req.user?.id;
+  const addressId = Number(req.params.addressId);
+
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  if (isNaN(addressId) || addressId <= 0)
+    throw new ApiError(400, "Invalid address ID");
+
+  const address = await prisma.address.findUnique({
+    where: { id: addressId },
+  });
+  if (!address || address.userId !== userId)
+    throw new ApiError(404, "address_not_found");
+
+  await prisma.address.update({
+    where: { id: addressId },
+    data: { isDeleted: true },
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Address deleted successfully"));
+});
 
 export {
   sendRegistrationOtp,
@@ -215,4 +394,8 @@ export {
   logout,
   getCurrentUser,
   updateCurrentUser,
+  updateProfilePicture,
+  addNewAddress,
+  updateAddress,
+  deleteAddress,
 };

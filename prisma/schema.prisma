@@ -87,17 +87,19 @@ model User {
 }
 
 model Address {
-  id      Int     @id @default(autoincrement())
-  userId  Int     @map("user_id")
-  name    String
-  phone   String
-  line1   String
-  line2   String?
-  street  String?
-  country String  @default("india")
-  state   String  @default("maharashtra")
-  city    String  @default("nagpur")
-  pinCode String  @map("pin_code")
+  id          Int     @id @default(autoincrement())
+  userId      Int     @map("user_id")
+  name        String
+  phone       String
+  line1       String
+  line2       String?
+  street      String?
+  country     String  @default("india")
+  state       String  @default("maharashtra")
+  city        String  @default("nagpur")
+  pinCode     String  @map("pin_code")
+  geoLocation String?
+  isDeleted   Boolean @default(false) @map("is_deleted")
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -151,9 +153,9 @@ model DeliveryBoy {
   licenseImage  String[] @map("license_images")
 
   //  Vehicle Details
-  vechicleOwnerName String  @map("vehicle_owner_name")
-  vehicleName       String? @map("vehicle_name")
-  vehicleNo         String  @unique @map("vehicle_no")
+  vehicleOwnerName String  @map("vehicle_owner_name")
+  vehicleName      String? @map("vehicle_name")
+  vehicleNo        String  @unique @map("vehicle_no")
 
   // Timestamps
   createdAt DateTime @default(now())

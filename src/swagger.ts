@@ -3,7 +3,7 @@ import swaggerUi from "swagger-ui-express";
 import fs from "fs";
 
 const file = fs.readFileSync(
-  path.resolve(__dirname, "../../api_doc.json"),
+  path.resolve(__dirname, "../../api-docs.json"),
   "utf8"
 );
 
