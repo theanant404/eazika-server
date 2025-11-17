@@ -1,12 +1,13 @@
 {
   "swagger": "2.0",
   "info": {
-    "description": "Eazika API - A comprehensive e-commerce platform connecting customers, shopkeepers, and delivery partners. This API provides authentication, shop management, product catalog, cart operations, order management, and delivery services.",
+    "description": "Eazika API - A comprehensive e-commerce platform connecting customers, shopkeepers, and delivery partners. This API provides OTP-based authentication, shop management, product catalog, cart operations, order management, and delivery services. All endpoints use JSON for request/response payloads. Protected routes require JWT Bearer token authentication.",
     "version": "2.0.0",
     "title": "Eazika API",
     "termsOfService": "https://eazika.com/terms/",
     "contact": {
-      "email": "contact@eazika.com"
+      "email": "api@eazika.com",
+      "name": "Eazika API Support"
     },
     "license": {
       "name": "MIT",
@@ -17,27 +18,27 @@
   "basePath": "/api/v2",
   "tags": [
     {
-      "name": "user",
-      "description": "User authentication and profile management operations"
+      "name": "User",
+      "description": "User authentication and profile management operations. Includes OTP-based registration/login, token refresh, logout, and profile updates. All authentication uses JWT tokens with 7-day expiry."
     },
     {
-      "name": "shop",
-      "description": "Shop management and product operations for shopkeepers"
+      "name": "Shop",
+      "description": "Shop management and product operations for shopkeepers. Requires 'shopkeeper' role. Includes shop creation/updates, product inventory management, stock updates, and delivery partner invitations."
     },
     {
-      "name": "customer",
-      "description": "Customer cart and order management operations"
+      "name": "Customer",
+      "description": "Customer cart and order management operations. Requires authentication. Includes cart operations (add, update, remove, clear), order creation, order tracking, order history, and cancellation."
     },
     {
-      "name": "delivery",
-      "description": "Delivery partner operations and order tracking"
+      "name": "Delivery",
+      "description": "Delivery partner operations and order tracking. Requires 'delivery_boy' role. Includes profile creation/updates and viewing assigned delivery orders."
     }
   ],
   "schemes": ["http", "https"],
   "paths": {
     "/users/register": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Send registration OTP",
         "description": "Initiates the user registration process by sending an OTP to the provided phone number",
         "operationId": "sendRegistrationOtp",
@@ -72,7 +73,7 @@
     },
     "/users/register/verify": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Verify registration OTP",
         "description": "Verifies the OTP sent during registration and creates a new user account",
         "operationId": "verifyRegistrationOtp",
@@ -107,7 +108,7 @@
     },
     "/users/register/resend": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Resend registration OTP",
         "description": "Resends the registration OTP to the provided phone number",
         "operationId": "resendRegistrationOtp",
@@ -139,7 +140,7 @@
     },
     "/users/login": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Send login OTP",
         "description": "Initiates the login process by sending an OTP to the registered phone number",
         "operationId": "sendLoginOtp",
@@ -171,7 +172,7 @@
     },
     "/users/login/verify": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Verify login OTP",
         "description": "Verifies the login OTP and issues authentication tokens",
         "operationId": "verifyLoginOtp",
@@ -206,7 +207,7 @@
     },
     "/users/login/resend": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Resend login OTP",
         "description": "Resends the login OTP to the provided phone number",
         "operationId": "resendLoginOtp",
@@ -238,7 +239,7 @@
     },
     "/users/refresh": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Refresh access token",
         "description": "Generates new access and refresh tokens using a valid refresh token",
         "operationId": "refreshToken",
@@ -270,7 +271,7 @@
     },
     "/users/logout": {
       "post": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Logout user",
         "description": "Logs out the current user by clearing authentication cookies",
         "operationId": "logout",
@@ -293,7 +294,7 @@
     },
     "/users/user/me": {
       "get": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Get current user profile",
         "description": "Retrieves the profile information of the currently authenticated user",
         "operationId": "getCurrentUser",
@@ -317,7 +318,7 @@
         ]
       },
       "patch": {
-        "tags": ["user"],
+        "tags": ["User"],
         "summary": "Update current user profile",
         "description": "Updates the profile information of the currently authenticated user",
         "operationId": "updateCurrentUser",
@@ -352,9 +353,184 @@
         ]
       }
     },
+    "/users/user/update-profile-picture": {
+      "patch": {
+        "tags": ["User"],
+        "summary": "Update profile picture",
+        "description": "Updates the profile picture URL for the currently authenticated user",
+        "operationId": "updateProfilePicture",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Profile picture URL",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateProfilePictureRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile picture updated successfully",
+            "schema": {
+              "$ref": "#/definitions/User"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Invalid image URL"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/user/add-new-address": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Add new delivery address",
+        "description": "Adds a new delivery address for the authenticated user. Users can have multiple addresses for different delivery locations.",
+        "operationId": "addNewAddress",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Address details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AddAddressRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Address added successfully",
+            "schema": {
+              "$ref": "#/definitions/Address"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Invalid address data"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/user/update-address/{addressId}": {
+      "patch": {
+        "tags": ["User"],
+        "summary": "Update delivery address",
+        "description": "Updates an existing delivery address for the authenticated user",
+        "operationId": "updateAddress",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "addressId",
+            "in": "path",
+            "description": "ID of the address to update",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Updated address details",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateAddressRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Address"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Address not found"
+          },
+          "403": {
+            "description": "Not authorized to update this address"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/user/delete-address/{addressId}": {
+      "delete": {
+        "tags": ["User"],
+        "summary": "Delete delivery address",
+        "description": "Deletes a delivery address for the authenticated user. Cannot delete default address if other addresses exist.",
+        "operationId": "deleteAddress",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "addressId",
+            "in": "path",
+            "description": "ID of the address to delete",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address deleted successfully",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Address not found"
+          },
+          "403": {
+            "description": "Not authorized to delete this address"
+          },
+          "400": {
+            "description": "Cannot delete default address"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/shops/create-shop": {
       "post": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Create a new shop",
         "description": "Creates a new shop profile for the authenticated user, converting them to a shopkeeper",
         "operationId": "createShop",
@@ -394,7 +570,7 @@
     },
     "/shops/update-shop": {
       "put": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Update shop details",
         "description": "Updates the shop information for the authenticated shopkeeper",
         "operationId": "updateShop",
@@ -434,7 +610,7 @@
     },
     "/shops/add-shop-product": {
       "post": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Add a product to shop",
         "description": "Adds a new product to the shopkeeper's inventory",
         "operationId": "addShopProduct",
@@ -474,7 +650,7 @@
     },
     "/shops/update-shop-product/{productId}": {
       "put": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Update shop product",
         "description": "Updates an existing product in the shop's inventory",
         "operationId": "updateShopProduct",
@@ -525,7 +701,7 @@
     },
     "/shops/update-shop-product-stock/{productId}": {
       "put": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Update product stock",
         "description": "Updates the stock quantity for a specific product",
         "operationId": "updateShopProductStock",
@@ -576,7 +752,7 @@
     },
     "/shops/get-user:phone": {
       "get": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Get user by phone number",
         "description": "Retrieves user information by phone number for inviting delivery partners",
         "operationId": "getUserByPhone",
@@ -616,7 +792,7 @@
     },
     "/shops/send-invite-to-delivery": {
       "patch": {
-        "tags": ["shop"],
+        "tags": ["Shop"],
         "summary": "Send invite to delivery partner",
         "description": "Sends an invitation to a user to become a delivery partner for the shop",
         "operationId": "sendInviteToDeliveryPartner",
@@ -656,7 +832,7 @@
     },
     "/customers/add-to-cart": {
       "post": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Add item to cart",
         "description": "Adds a product to the customer's shopping cart",
         "operationId": "addToCart",
@@ -693,7 +869,7 @@
     },
     "/customers/get-cart": {
       "get": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Get customer cart",
         "description": "Retrieves all items in the customer's shopping cart",
         "operationId": "getCart",
@@ -722,7 +898,7 @@
     },
     "/customers/update-cart-item/{itemId}": {
       "put": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Update cart item",
         "description": "Updates the quantity or details of a specific cart item",
         "operationId": "updateCartItem",
@@ -770,7 +946,7 @@
     },
     "/customers/remove-cart-item/{itemId}": {
       "delete": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Remove item from cart",
         "description": "Removes a specific item from the customer's cart",
         "operationId": "removeCartItem",
@@ -808,7 +984,7 @@
     },
     "/customers/clear-cart": {
       "delete": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Clear entire cart",
         "description": "Removes all items from the customer's shopping cart",
         "operationId": "clearCart",
@@ -834,7 +1010,7 @@
     },
     "/customers/create-order": {
       "post": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Create a new order",
         "description": "Creates a new order from the customer's cart items",
         "operationId": "createOrder",
@@ -874,7 +1050,7 @@
     },
     "/customers/get-order/{orderId}": {
       "get": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Get order by ID",
         "description": "Retrieves detailed information about a specific order",
         "operationId": "getOrder",
@@ -912,7 +1088,7 @@
     },
     "/customers/get-orders": {
       "get": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Get all customer orders",
         "description": "Retrieves all orders placed by the customer",
         "operationId": "getOrders",
@@ -974,9 +1150,9 @@
     },
     "/customers/track-order/{orderId}": {
       "get": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Track order status",
-        "description": "Retrieves real-time tracking information for a specific order",
+        "description": "Retrieves real-time tracking information for a specific order including current status, delivery partner details, and estimated delivery time. Note: Route path in code is 'track-order/:orderId' (missing leading slash - potential bug)",
         "operationId": "trackOrder",
         "produces": ["application/json"],
         "parameters": [
@@ -1012,7 +1188,7 @@
     },
     "/customers/cancel-order-by-customer/{orderId}": {
       "put": {
-        "tags": ["customer"],
+        "tags": ["Customer"],
         "summary": "Cancel order",
         "description": "Allows customer to cancel their order before it's shipped",
         "operationId": "cancelOrderByCustomer",
@@ -1063,7 +1239,7 @@
     },
     "/delivery/create-delivery-profile": {
       "post": {
-        "tags": ["delivery"],
+        "tags": ["Delivery"],
         "summary": "Create delivery partner profile",
         "description": "Creates a delivery partner profile for the authenticated user",
         "operationId": "createDeliveryProfile",
@@ -1103,7 +1279,7 @@
     },
     "/delivery/update-delivery-profile": {
       "put": {
-        "tags": ["delivery"],
+        "tags": ["Delivery"],
         "summary": "Update delivery partner profile",
         "description": "Updates the delivery partner's profile information",
         "operationId": "updateDeliveryProfile",
@@ -1143,7 +1319,7 @@
     },
     "/delivery/get-assigned-orders": {
       "get": {
-        "tags": ["delivery"],
+        "tags": ["Delivery"],
         "summary": "Get assigned orders",
         "description": "Retrieves all orders assigned to the delivery partner",
         "operationId": "getAssignedOrders",
@@ -1188,12 +1364,13 @@
       "type": "apiKey",
       "name": "Authorization",
       "in": "header",
-      "description": "JWT token in the format: Bearer <token>"
+      "description": "JWT Bearer token authentication. Format: 'Bearer {token}'. Obtain token from login/register endpoints. Token expires in 7 days. Use /users/refresh endpoint to get new token before expiration."
     }
   },
   "definitions": {
     "ApiResponse": {
       "type": "object",
+      "description": "Standard API response wrapper used across all endpoints",
       "properties": {
         "statusCode": {
           "type": "integer",
@@ -1211,63 +1388,75 @@
     },
     "RegistrationOtpRequest": {
       "type": "object",
+      "description": "Request payload for initiating user registration. Phone number must be unique and exactly 10 digits. Name must be between 2-100 characters.",
       "required": ["name", "phone"],
       "properties": {
         "name": {
           "type": "string",
           "minLength": 2,
           "maxLength": 100,
+          "description": "User's full name for registration",
           "example": "John Doe"
         },
         "phone": {
           "type": "string",
           "pattern": "^\\d{10}$",
+          "description": "10-digit Indian phone number without country code or special characters",
           "example": "9876543210"
         },
         "deviceInfo": {
           "type": "string",
+          "description": "Optional device information for security tracking",
           "example": "iPhone 13 Pro"
         }
       }
     },
     "LoginOtpRequest": {
       "type": "object",
+      "description": "Request payload for initiating user login. Phone must be registered in the system.",
       "required": ["phone"],
       "properties": {
         "phone": {
           "type": "string",
           "pattern": "^\\d{10}$",
+          "description": "Registered 10-digit phone number",
           "example": "9876543210"
         }
       }
     },
     "VerifyOtpRequest": {
       "type": "object",
+      "description": "Request payload for verifying OTP sent to phone. OTP expires in 5 minutes (300 seconds). Maximum 3 attempts allowed per request.",
       "required": ["phone", "requestId", "otp"],
       "properties": {
         "phone": {
           "type": "string",
           "pattern": "^\\d{10}$",
+          "description": "Phone number where OTP was sent",
           "example": "9876543210"
         },
         "requestId": {
           "type": "string",
+          "description": "Unique request identifier returned from OTP send endpoint",
           "example": "req_1234567890"
         },
         "otp": {
           "type": "string",
           "minLength": 4,
           "maxLength": 4,
+          "description": "4-digit OTP code received via SMS",
           "example": "1234"
         },
         "deviceInfo": {
           "type": "string",
+          "description": "Optional device information for session tracking",
           "example": "iPhone 13 Pro"
         }
       }
     },
     "OtpResponse": {
       "type": "object",
+      "description": "Response containing request ID for OTP verification. Store requestId to verify OTP.",
       "properties": {
         "statusCode": {
           "type": "integer",
@@ -1283,6 +1472,7 @@
           "properties": {
             "requestId": {
               "type": "string",
+              "description": "Use this ID when verifying the OTP",
               "example": "req_1234567890"
             }
           }
@@ -1291,6 +1481,7 @@
     },
     "AuthResponse": {
       "type": "object",
+      "description": "Authentication response with JWT tokens. AccessToken for API calls, stored in Authorization header. RefreshToken stored in httpOnly cookie.",
       "properties": {
         "statusCode": {
           "type": "integer",
@@ -1348,40 +1539,49 @@
     },
     "RefreshTokenRequest": {
       "type": "object",
+      "description": "Optional request body for token refresh. Refresh token can also be sent via httpOnly cookie.",
       "properties": {
         "refreshToken": {
           "type": "string",
+          "description": "JWT refresh token. If not provided in body, will be read from cookie.",
           "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         }
       }
     },
     "User": {
       "type": "object",
+      "description": "Complete user profile model with all fields. Role determines access permissions: 'user' (customer), 'shopkeeper', 'delivery_boy', or 'admin'.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique user identifier",
           "example": 1
         },
         "name": {
           "type": "string",
+          "description": "User's full name",
           "example": "John Doe"
         },
         "phone": {
           "type": "string",
+          "description": "Unique 10-digit phone number",
           "example": "9876543210"
         },
         "email": {
           "type": "string",
+          "description": "Optional email address",
           "example": "john@example.com"
         },
         "image": {
           "type": "string",
+          "description": "Profile image URL",
           "example": "https://example.com/profile.jpg"
         },
         "role": {
           "type": "string",
           "enum": ["user", "shopkeeper", "delivery_boy", "admin"],
+          "description": "User role: 'user' for customers, 'shopkeeper' for shop owners, 'delivery_boy' for delivery partners, 'admin' for administrators",
           "example": "user"
         },
         "isActive": {
@@ -1442,45 +1642,171 @@
         }
       }
     },
+    "UpdateProfilePictureRequest": {
+      "type": "object",
+      "description": "Request to update user's profile picture. Image should be uploaded to storage first, then URL passed here.",
+      "required": ["image"],
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Profile picture URL (must be valid HTTPS URL)",
+          "example": "https://example.com/profile.jpg"
+        }
+      }
+    },
+    "AddAddressRequest": {
+      "type": "object",
+      "description": "Request to add a new delivery address. All fields except line2 and street are required.",
+      "required": [
+        "name",
+        "phone",
+        "line1",
+        "city",
+        "state",
+        "country",
+        "pinCode"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Address label (Home, Office, etc.)",
+          "example": "Home"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number for delivery",
+          "pattern": "^\\d{10}$",
+          "example": "9876543210"
+        },
+        "line1": {
+          "type": "string",
+          "description": "Primary address line",
+          "example": "123 Main Street"
+        },
+        "line2": {
+          "type": "string",
+          "description": "Secondary address line (optional)",
+          "example": "Apartment 4B"
+        },
+        "street": {
+          "type": "string",
+          "description": "Street or locality (optional)",
+          "example": "Park Avenue"
+        },
+        "city": {
+          "type": "string",
+          "description": "City name",
+          "example": "nagpur"
+        },
+        "state": {
+          "type": "string",
+          "description": "State name",
+          "example": "maharashtra"
+        },
+        "country": {
+          "type": "string",
+          "description": "Country name (default: india)",
+          "example": "india"
+        },
+        "pinCode": {
+          "type": "string",
+          "description": "Postal code",
+          "example": "440001"
+        }
+      }
+    },
+    "UpdateAddressRequest": {
+      "type": "object",
+      "description": "Request to update an existing address. All fields are optional, only provided fields will be updated.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Office"
+        },
+        "phone": {
+          "type": "string",
+          "pattern": "^\\d{10}$",
+          "example": "9876543210"
+        },
+        "line1": {
+          "type": "string",
+          "example": "456 Business Park"
+        },
+        "line2": {
+          "type": "string",
+          "example": "Floor 5"
+        },
+        "street": {
+          "type": "string",
+          "example": "Tech Street"
+        },
+        "city": {
+          "type": "string",
+          "example": "mumbai"
+        },
+        "state": {
+          "type": "string",
+          "example": "maharashtra"
+        },
+        "country": {
+          "type": "string",
+          "example": "india"
+        },
+        "pinCode": {
+          "type": "string",
+          "example": "400001"
+        }
+      }
+    },
     "Address": {
       "type": "object",
+      "description": "Delivery address model. Users can have multiple addresses. One can be set as default via defaultAddressId in User model.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique address identifier",
           "example": 1
         },
         "userId": {
           "type": "integer",
           "format": "int32",
+          "description": "ID of the user who owns this address",
           "example": 1
         },
         "name": {
           "type": "string",
+          "description": "Address label (e.g., Home, Office, etc.)",
           "example": "Home"
         },
         "phone": {
           "type": "string",
+          "description": "Contact phone for this address",
           "example": "9876543210"
         },
         "line1": {
           "type": "string",
+          "description": "Primary address line (street address, building number)",
           "example": "123 Main Street"
         },
         "line2": {
           "type": "string",
+          "description": "Secondary address line (apartment, suite, etc.)",
           "example": "Apartment 4B"
         },
         "street": {
           "type": "string",
+          "description": "Street or locality name",
           "example": "Park Avenue"
         },
         "city": {
           "type": "string",
+          "description": "City name (default: nagpur)",
           "example": "nagpur"
         },
         "state": {
           "type": "string",
+          "description": "State name (default: maharashtra)",
           "example": "maharashtra"
         },
         "country": {
@@ -1495,19 +1821,23 @@
     },
     "Shopkeeper": {
       "type": "object",
+      "description": "Shopkeeper profile model. Created when a user registers their shop. Links to User, BankDetail, and ShopkeeperDocument models.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique shopkeeper identifier",
           "example": 1
         },
         "userId": {
           "type": "integer",
           "format": "int32",
+          "description": "Associated user ID (must have role 'shopkeeper')",
           "example": 1
         },
         "shopName": {
           "type": "string",
+          "description": "Name of the shop/store",
           "example": "Fresh Mart"
         },
         "shopCategory": {
@@ -1521,6 +1851,7 @@
             "hmoeAppliances",
             "others"
           ],
+          "description": "Business category. Note: 'hmoeAppliances' appears to be a typo for 'homeAppliances'",
           "example": "grocery"
         },
         "shopImage": {
@@ -1528,32 +1859,39 @@
           "items": {
             "type": "string"
           },
+          "description": "Array of shop image URLs for storefront display",
           "example": ["https://example.com/shop1.jpg"]
         },
         "fssaiNumber": {
           "type": "string",
+          "description": "Food Safety and Standards Authority of India license number (14 digits, required for food businesses)",
           "example": "12345678901234"
         },
         "gstNumber": {
           "type": "string",
+          "description": "Goods and Services Tax identification number (15 characters)",
           "example": "22AAAAA0000A1Z5"
         },
         "isActive": {
           "type": "boolean",
+          "description": "Shop operational status. Inactive shops cannot process orders.",
           "example": true
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Shop registration timestamp"
         },
         "updatedAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Last update timestamp"
         }
       }
     },
     "CreateShopRequest": {
       "type": "object",
+      "description": "Request payload for creating a new shop. Requires bank details and business documents for verification. User will be converted to 'shopkeeper' role.",
       "required": ["shopName", "shopCategory"],
       "properties": {
         "shopName": {
@@ -1630,6 +1968,7 @@
     },
     "BankDetail": {
       "type": "object",
+      "description": "Bank account details for shopkeeper payments. Required for shop registration. Used for payment settlements.",
       "required": [
         "accountHolderName",
         "accountNumber",
@@ -1640,32 +1979,39 @@
       "properties": {
         "accountHolderName": {
           "type": "string",
+          "description": "Name of the account holder (should match legal documents)",
           "example": "John Doe"
         },
         "accountNumber": {
           "type": "string",
+          "description": "Bank account number",
           "example": "1234567890"
         },
         "ifscCode": {
           "type": "string",
+          "description": "Indian Financial System Code (11 characters)",
           "example": "SBIN0001234"
         },
         "bankName": {
           "type": "string",
+          "description": "Name of the bank",
           "example": "State Bank of India"
         },
         "branchName": {
           "type": "string",
+          "description": "Bank branch name",
           "example": "Main Branch"
         },
         "bankPassbookImage": {
           "type": "string",
+          "description": "Optional image URL of bank passbook for verification",
           "example": "https://example.com/passbook.jpg"
         }
       }
     },
     "ShopkeeperDocument": {
       "type": "object",
+      "description": "Required KYC documents for shop verification. All images should be clear and readable. Used for business verification and compliance.",
       "required": [
         "aadharImage",
         "electricityBillImage",
@@ -1674,84 +2020,102 @@
       "properties": {
         "aadharImage": {
           "type": "string",
+          "description": "Aadhar card image URL (government-issued ID)",
           "example": "https://example.com/aadhar.jpg"
         },
         "electricityBillImage": {
           "type": "string",
+          "description": "Recent electricity bill for address proof",
           "example": "https://example.com/electricity.jpg"
         },
         "businessCertificateImage": {
           "type": "string",
+          "description": "Business registration/trade license certificate",
           "example": "https://example.com/certificate.jpg"
         },
         "panImage": {
           "type": "string",
+          "description": "Optional PAN card image for tax purposes",
           "example": "https://example.com/pan.jpg"
         }
       }
     },
     "ShopProduct": {
       "type": "object",
+      "description": "Product in a shop's inventory. Can reference a global product or be shop-specific. Shopkeepers manage stock and pricing.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique product identifier",
           "example": 1
         },
         "shopkeeperId": {
           "type": "integer",
           "format": "int32",
+          "description": "ID of the shopkeeper who owns this product",
           "example": 1
         },
         "productCategoryId": {
           "type": "integer",
           "format": "int32",
+          "description": "Product category ID for classification",
           "example": 1
         },
         "globalProductId": {
           "type": "integer",
           "format": "int32",
+          "description": "Reference to global product catalog (if isGlobalProduct is true)",
           "example": 1
         },
         "isGlobalProduct": {
           "type": "boolean",
+          "description": "Whether this product uses global catalog data or shop-specific data",
           "example": true
         },
         "name": {
           "type": "string",
+          "description": "Product name (used if not global product)",
           "example": "Fresh Tomatoes"
         },
         "description": {
           "type": "string",
+          "description": "Product description (used if not global product)",
           "example": "Organic tomatoes from local farms"
         },
         "images": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Product image URLs"
         },
         "stock": {
           "type": "integer",
           "format": "int32",
+          "description": "Available quantity in inventory",
           "example": 100
         },
         "isActive": {
           "type": "boolean",
+          "description": "Product availability status. Inactive products cannot be ordered.",
           "example": true
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Product creation timestamp"
         },
         "updatedAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Last update timestamp"
         }
       }
     },
     "AddShopProductRequest": {
       "type": "object",
+      "description": "Request to add a new product to shop inventory. Can link to global product or create shop-specific product. Must include pricing information.",
       "required": ["productCategoryId", "name", "stock"],
       "properties": {
         "productCategoryId": {
@@ -1828,34 +2192,41 @@
     },
     "ProductPrice": {
       "type": "object",
+      "description": "Pricing information for products with different weights/quantities. Supports discounts and multiple units (grams, kg, ml, litre, piece).",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique price variant ID",
           "example": 1
         },
         "price": {
           "type": "number",
           "format": "float",
+          "description": "Base price before discount",
           "example": 50.0
         },
         "discount": {
           "type": "number",
           "format": "float",
+          "description": "Discount amount (default 0.0)",
           "example": 5.0
         },
         "weight": {
           "type": "integer",
           "format": "int32",
+          "description": "Quantity/weight of the product in specified unit",
           "example": 500
         },
         "unit": {
           "type": "string",
           "enum": ["grams", "kg", "ml", "litre", "piece"],
+          "description": "Unit of measurement for the product quantity",
           "example": "grams"
         },
         "currency": {
           "type": "string",
+          "description": "Currency code (default: INR)",
           "example": "INR"
         }
       }
@@ -1873,44 +2244,53 @@
     },
     "CartItem": {
       "type": "object",
+      "description": "Shopping cart item model. Each item references a shop product, specific price variant, and quantity. Cart is user-specific and persists across sessions.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique cart item identifier",
           "example": 1
         },
         "userId": {
           "type": "integer",
           "format": "int32",
+          "description": "Owner of the cart item",
           "example": 1
         },
         "shopProductId": {
           "type": "integer",
           "format": "int32",
+          "description": "Product being added to cart",
           "example": 10
         },
         "productPriceId": {
           "type": "integer",
           "format": "int32",
+          "description": "Selected price variant (determines weight/quantity)",
           "example": 5
         },
         "quantity": {
           "type": "integer",
           "format": "int32",
+          "description": "Number of items (must be at least 1)",
           "example": 2
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "When item was added to cart"
         },
         "updatedAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Last modification timestamp"
         }
       }
     },
     "AddToCartRequest": {
       "type": "object",
+      "description": "Request to add a product to cart. Must specify the product, price variant, and quantity. Stock availability is checked.",
       "required": ["shopProductId", "productPriceId", "quantity"],
       "properties": {
         "shopProductId": {
@@ -1945,69 +2325,83 @@
     },
     "Order": {
       "type": "object",
+      "description": "Order model representing a customer purchase. Tracks items, payment, delivery, and status through the fulfillment lifecycle.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique order identifier",
           "example": 1
         },
         "userId": {
           "type": "integer",
           "format": "int32",
+          "description": "ID of the customer who placed the order",
           "example": 1
         },
         "assignedDeliveryBoyId": {
           "type": "integer",
           "format": "int32",
+          "description": "ID of the assigned delivery partner (null if not yet assigned)",
           "example": 3
         },
         "totalProducts": {
           "type": "integer",
           "format": "int32",
+          "description": "Total number of product items in the order",
           "example": 5
         },
         "totalAmount": {
           "type": "number",
           "format": "float",
+          "description": "Total order amount including all items and discounts",
           "example": 500.0
         },
         "addressId": {
           "type": "integer",
           "format": "int32",
+          "description": "Delivery address ID",
           "example": 1
         },
         "paymentMethod": {
           "type": "string",
           "enum": ["cash_on_delivery", "online_payment"],
+          "description": "Payment method selected for the order",
           "example": "cash_on_delivery"
         },
         "status": {
           "type": "string",
           "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+          "description": "Current order status in the fulfillment workflow",
           "example": "pending"
         },
         "cancelBy": {
           "type": "string",
           "enum": ["user", "shopkeeper", "delivery_boy", "admin"],
+          "description": "Who cancelled the order (only set if status is 'cancelled')",
           "example": "user"
         },
         "cancelReason": {
           "type": "string",
+          "description": "Reason provided for order cancellation",
           "example": "Changed my mind"
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Order creation timestamp"
         },
         "updatedAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Last status update timestamp"
         },
         "orderItems": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/OrderItem"
-          }
+          },
+          "description": "List of products in this order"
         }
       }
     },
@@ -2069,34 +2463,42 @@
     },
     "OrderTracking": {
       "type": "object",
+      "description": "Real-time order tracking information including current status, location, and delivery partner details. Used for customer order tracking.",
       "properties": {
         "orderId": {
           "type": "integer",
           "format": "int32",
+          "description": "Order ID being tracked",
           "example": 1
         },
         "status": {
           "type": "string",
           "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+          "description": "Current order status",
           "example": "shipped"
         },
         "currentLocation": {
           "type": "string",
+          "description": "Current delivery status or location description",
           "example": "Out for delivery"
         },
         "estimatedDelivery": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Estimated delivery date and time"
         },
         "deliveryBoy": {
           "type": "object",
+          "description": "Delivery partner contact information",
           "properties": {
             "name": {
               "type": "string",
+              "description": "Delivery partner's name",
               "example": "Rahul Kumar"
             },
             "phone": {
               "type": "string",
+              "description": "Delivery partner's contact number",
               "example": "9876543210"
             }
           }
@@ -2105,55 +2507,67 @@
     },
     "DeliveryBoy": {
       "type": "object",
+      "description": "Delivery partner profile with KYC details and vehicle information. Delivery partners are associated with specific shopkeepers and handle order deliveries.",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int32",
+          "description": "Unique delivery partner identifier",
           "example": 1
         },
         "userId": {
           "type": "integer",
           "format": "int32",
+          "description": "Associated user ID (must have role 'delivery_boy')",
           "example": 1
         },
         "shopkeeperId": {
           "type": "integer",
           "format": "int32",
+          "description": "Shopkeeper who invited/manages this delivery partner",
           "example": 5
         },
         "aadharNumber": {
           "type": "string",
+          "description": "Aadhar card number (12 digits, unique government ID)",
           "example": "123456789012"
         },
         "panNumber": {
           "type": "string",
+          "description": "Optional PAN card number for tax purposes",
           "example": "ABCDE1234F"
         },
         "licenseNumber": {
           "type": "string",
+          "description": "Driving license number (required for vehicle operation)",
           "example": "MH20200012345"
         },
         "licenseImage": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Driving license image URLs (front/back)"
         },
         "vechicleOwnerName": {
           "type": "string",
+          "description": "Name of the vehicle owner (Note: typo in field name, should be 'vehicleOwnerName')",
           "example": "Rahul Kumar"
         },
         "vehicleName": {
           "type": "string",
+          "description": "Vehicle model/make",
           "example": "Honda Activa"
         },
         "vehicleNo": {
           "type": "string",
+          "description": "Unique vehicle registration number",
           "example": "MH12AB1234"
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "Profile creation timestamp"
         },
         "updatedAt": {
           "type": "string",
