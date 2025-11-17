@@ -48,6 +48,8 @@ CREATE TABLE "addresses" (
     "state" TEXT NOT NULL DEFAULT 'maharashtra',
     "city" TEXT NOT NULL DEFAULT 'nagpur',
     "pin_code" TEXT NOT NULL,
+    "geoLocation" TEXT,
+    "is_deleted" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
