@@ -8,11 +8,8 @@ async function sendOtp(
 ): Promise<{ requestId: string }> {
   try {
     const { requestId, type } = await sendSmsOtp(phone);
-    if (type !== "secure") {
-      throw new Error(
-        "OTP delivery failed: provider returned non-secure response"
-      );
-    }
+    if (type != "success") throw new Error("OTP delivery failed");
+
     await redis.setPhoneOtpDataOnRedis({
       name,
       phone,
@@ -34,11 +31,7 @@ async function reteryOtp(requestId: string) {
   if (!record) throw new Error("Invalid request ID");
 
   const { requestId: newRequestId, type } = await reterySmsOtp(record.phone);
-  if (type !== "secure") {
-    throw new Error(
-      "OTP delivery failed: provider returned non-secure response"
-    );
-  }
+  if (type != "success") throw new Error("Failed to resend OTP");
 
   // Update the Redis record with the new requestId and reset attempts
   record.requestId = newRequestId;
@@ -67,13 +60,13 @@ async function verifyOtp(
   if (record.expiresAt < new Date()) return { ok: false, reason: "expired" };
   if (record.attempts >= 5) return { ok: false, reason: "too_many_attempts" };
 
-  const { type } = await verifySmsOtp(requestId, otp);
-  if (type !== "success") {
+  const result = await verifySmsOtp(requestId, otp);
+  if (result.type !== "success") {
     await redis.incrementOtpAttempts(requestId);
-    return { ok: false, reason: "invalid_otp" };
+    return { ok: false, reason: result.requestId };
   }
 
-  await redis.markOtpAsUsed(requestId);
+  // await redis.markOtpAsUsed(requestId);
   return { ok: true };
 }
 

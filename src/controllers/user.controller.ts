@@ -52,9 +52,13 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
   let phoneOtpData = await redis.getPhoneOtpByRequestId(requestId);
   if (!phoneOtpData) throw new ApiError(500, "otp_data_not_found");
 
-  const user = await prisma.user.create({
-    data: { phone: phoneOtpData.phone, name: phoneOtpData?.name || "" },
+  // create user if not exists
+  const user = await prisma.user.upsert({
+    where: { phone: phoneOtpData.phone },
+    update: {},
+    create: { phone: phoneOtpData.phone, name: phoneOtpData?.name || "" },
   });
+
   if (!user) throw new ApiError(500, "user_creation_failed");
 
   const accessToken = jwt.signAccessToken({ id: user.id, role: user.role });
@@ -67,7 +71,7 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
       new ApiResponse(200, "OTP verified successfully", {
         accessToken,
         expiresIn: "7d", // 7 days
-        user: { id: user.id, phone: user.phone },
+        user: { id: user.id, phone: user.phone, name: user.name },
       })
     );
 });
@@ -94,9 +98,7 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
   // 3. create and send otp
   // 4. return response
 
-  const { phone } = userSchemas.registrationOtpSchema
-    .pick({ phone: true })
-    .parse(req.body);
+  const { phone } = userSchemas.registrationOtpSchema.parse(req.body);
 
   const user = await prisma.user.findUnique({ where: { phone } });
   if (!user) throw new ApiError(404, "user_not_found");

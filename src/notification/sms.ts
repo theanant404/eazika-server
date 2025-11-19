@@ -26,7 +26,6 @@ async function sendSmsOtp(phone: string): Promise<SmsResponse> {
     const {
       data: { message: requestId, type },
     } = await axios.request(options);
-
     return { requestId, type } as SmsResponse;
   } catch (error) {
     return { requestId: "", type: "error" };
@@ -42,8 +41,9 @@ async function verifySmsOtp(requestId: string, otp: string) {
       authkey: smsApiKey,
     },
     data: JSON.stringify({
-      requestId,
-      otp,
+      widgetId: smsTemplateId,
+      reqId: requestId,
+      otp: otp,
     }),
   };
 
@@ -51,7 +51,6 @@ async function verifySmsOtp(requestId: string, otp: string) {
     const {
       data: { message: requestId, type },
     } = await axios.request(options);
-
     return { requestId, type };
   } catch (error) {
     return { requestId: "", type: "error" };
