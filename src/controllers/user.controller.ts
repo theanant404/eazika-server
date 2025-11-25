@@ -98,7 +98,10 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
   // 3. create and send otp
   // 4. return response
 
-  const { phone } = userSchemas.registrationOtpSchema.parse(req.body);
+  // const { phone } = userSchemas.registrationOtpSchema.parse(req.body);
+  const { phone } = req.body;
+  if (typeof phone !== "string" || !/^\d{10}$/.test(phone))
+    throw new ApiError(400, "Phone number must be exactly 10 digits");
 
   const user = await prisma.user.findUnique({ where: { phone } });
   if (!user) throw new ApiError(404, "user_not_found");
