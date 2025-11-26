@@ -28,14 +28,20 @@ const _env = {
   smsOtpExpiresAt: parseInt(process.env.SMS_OTP_EXPIRES_AT || "300", 10), // in seconds
 
   // google credentials
-  googleClientId: process.env.GOOGLE_CLIENT_ID,
-  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  // googleClientId: process.env.GOOGLE_CLIENT_ID,
+  // googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  gcsBucketName: process.env.GCS_BUCKET_NAME!,
 
   // smtp (email)
   smtpHost: process.env.SMTP_HOST,
   smtpPort: Number(process.env.SMTP_PORT),
   smtpUser: process.env.SMTP_USER,
   smtpPassword: process.env.SMTP_PASSWORD,
+
+  // push notification
+  // vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
+  // vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
+  // vapidSubject: process.env.VAPID_SUBJECT,
 };
 
 const env = Object.freeze(_env);

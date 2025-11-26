@@ -12,7 +12,8 @@
     "prettier": "prettier --write \"src/**/*.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test": "jest"
   },
   "keywords": [
     "eazika"
@@ -26,6 +27,7 @@
     "url": "git+https://github.com/dev-voy/eazika-server-2O.git"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.17.3",
     "@prisma/client": "^6.19.0",
     "axios": "^1.13.2",
     "cookie-parser": "^1.4.7",
