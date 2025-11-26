@@ -23,8 +23,9 @@ declare global {
   }
 }
 const swaggerHost = asyncHandler(async (req, _, next) => {
+  console.log("swagger host", req.get("host"));
   swaggerDocument.host =
-    req.get("host") === "backend" ? "server.eazika.com" : req.get("host");
+    req.get("host") == "backend" ? "server.eazika.com" : req.get("host");
   req.swaggerDoc = swaggerDocument;
   next();
 });
