@@ -1,135 +1,97 @@
 import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
+import { shopRegistrationSchema } from "../validations/shop.validation";
 
-/**
- * Create shop profile for shopkeeper
- * Request body: {
- *   shopName (required),
- *   shopCategory (required),
- *   shopImages (array, required),
- *   fssaiNumber (optional),
- *   gstNumber (optional),
- *   bankDetail: {
- *     accountHolderName, accountNumber, ifscCode, bankName, branchName, bankPassbookImage (optional)
- *   },
- *   document: {
- *     aadharImage, electricityBillImage, businessCertificateImage, panImage (optional)
- *   }
- * }
- * Steps:
- * 1. Validate all required fields
- * 2. Check uniqueness of FSSAI and GST numbers
- * 3. Create bank details record
- * 4. Create shopkeeper documents record
- * 5. Create shopkeeper profile
- * 6. Update user role to shopkeeper
- */
 const createShop = asyncHandler(async (req, res) => {
-  const {
-    shopName,
-    shopCategory,
-    shopImages,
-    fssaiNumber,
-    gstNumber,
-    bankDetail,
-    document,
-  } = req.body;
+  // write a step to create shop profile for shopkeeper
+  // 1. Validate request body using shopRegistrationSchema
+  // 2. Check if shop profile already exists for the user
+  // 3. Create bank details and documents entries
+  // 4. Create shopkeeper profile
+  // 5. Update user role to shopkeeper
+  // 6. Return created shop profile
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  // Validate required fields
-  if (!shopName || !shopCategory || !shopImages || !Array.isArray(shopImages) || shopImages.length === 0) {
-    throw new ApiError(400, "shopName, shopCategory, and shopImages are required");
-  }
+  const payload = shopRegistrationSchema.parse(req.body);
 
-  if (!bankDetail || !bankDetail.accountHolderName || !bankDetail.accountNumber || !bankDetail.ifscCode || !bankDetail.bankName || !bankDetail.branchName) {
-    throw new ApiError(400, "Complete bank details are required");
-  }
-
-  if (!document || !document.aadharImage || !document.electricityBillImage || !document.businessCertificateImage) {
-    throw new ApiError(400, "Required documents are missing");
-  }
-
-  // Check if shopkeeper profile already exists
-  const existingShopkeeper = await prisma.shopkeeper.findUnique({
-    where: { userId: req.user.id },
-  });
-
-  if (existingShopkeeper) {
-    throw new ApiError(400, "Shop profile already exists for this user");
-  }
-
-  // Check FSSAI uniqueness if provided
-  if (fssaiNumber) {
-    const fssaiExists = await prisma.shopkeeper.findUnique({
-      where: { fssaiNumber },
+  // Create shopkeeper, bank details and documents in a single transaction to minimize DB calls
+  const created = await prisma.$transaction(async (tx) => {
+    // Check existing profile inside the transaction to avoid race conditions
+    const existing = await tx.shopkeeper.findUnique({
+      where: { userId: req.user!.id },
     });
-    if (fssaiExists) {
-      throw new ApiError(400, "FSSAI number already registered");
-    }
-  }
+    if (existing)
+      throw new ApiError(400, "Shop profile already exists for this user");
 
-  // Check GST uniqueness if provided
-  if (gstNumber) {
-    const gstExists = await prisma.shopkeeper.findUnique({
-      where: { gstNumber },
+    // Create bank details
+    const createBankDetail = await tx.bankDetail.create({
+      data: {
+        accountHolderName: payload.bankDetail.accountHolderName,
+        accountNumber: payload.bankDetail.accountNumber,
+        ifscCode: payload.bankDetail.ifscCode,
+        bankName: payload.bankDetail.bankName,
+        branchName: payload.bankDetail.branchName,
+        bankPassbookImage: payload.bankDetail.bankPassbookImage || null,
+      },
     });
-    if (gstExists) {
-      throw new ApiError(400, "GST number already registered");
-    }
-  }
+    if (!createBankDetail)
+      throw new ApiError(500, "Failed to create bank details");
 
-  // Create bank details
-  const createdBankDetail = await prisma.bankDetail.create({
-    data: {
-      accountHolderName: bankDetail.accountHolderName,
-      accountNumber: bankDetail.accountNumber,
-      ifscCode: bankDetail.ifscCode,
-      bankName: bankDetail.bankName,
-      branchName: bankDetail.branchName,
-      bankPassbookImage: bankDetail.bankPassbookImage || null,
-    },
+    // Create documents
+    const createDocument = await tx.shopkeeperDocument.create({
+      data: {
+        aadharImage: payload.document.aadharImage,
+        electricityBillImage: payload.document.electricityBillImage,
+        businessCertificateImage: payload.document.businessCertificateImage,
+        panImage: payload.document.panImage || null,
+      },
+    });
+    if (!createDocument)
+      throw new ApiError(500, "Failed to create shop documents");
+
+    // Create shopkeeper profile
+    const shopkeeper = await tx.shopkeeper.create({
+      data: {
+        userId: req.user!.id,
+        shopName: payload.shopName,
+        shopCategory: payload.shopCategory,
+        shopImage: payload.shopImages,
+        fssaiNumber: payload.fssaiNumber || null,
+        gstNumber: payload.gstNumber || null,
+        bankDetailId: createBankDetail.id,
+        documentId: createDocument.id,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            role: true,
+          },
+        },
+        bankDetail: { select: { id: true } },
+        document: { select: { id: true } },
+      },
+    });
+
+    // Update user role in same transaction
+    await tx.user.update({
+      where: { id: req.user!.id },
+      data: { role: "shopkeeper" },
+    });
+
+    return shopkeeper;
   });
 
-  // Create shopkeeper documents
-  const createdDocument = await prisma.shopkeeperDocument.create({
-    data: {
-      aadharImage: document.aadharImage,
-      electricityBillImage: document.electricityBillImage,
-      businessCertificateImage: document.businessCertificateImage,
-      panImage: document.panImage || null,
-    },
-  });
-
-  // Create shopkeeper profile
-  const shopkeeper = await prisma.shopkeeper.create({
-    data: {
-      userId: req.user.id,
-      shopName,
-      shopCategory,
-      shopImage: shopImages,
-      fssaiNumber: fssaiNumber || null,
-      gstNumber: gstNumber || null,
-      documentId: createdDocument.id,
-      bankDetailId: createdBankDetail.id,
-    },
-    include: {
-      user: true,
-      document: true,
-      bankDetail: true,
-    },
-  });
-
-  // Update user role
-  await prisma.user.update({
-    where: { id: req.user.id },
-    data: { role: "shopkeeper" },
-  });
+  if (!created) throw new ApiError(500, "Failed to create shop profile");
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "Shop created successfully", shopkeeper));
+    .json(new ApiResponse(201, "Shop created successfully", created));
 });
 
 /**
@@ -162,7 +124,8 @@ const updateShop = asyncHandler(async (req, res) => {
   const updateData: any = {};
 
   if (shopName) updateData.shopName = shopName;
-  if (shopImages && Array.isArray(shopImages) && shopImages.length > 0) updateData.shopImage = shopImages;
+  if (shopImages && Array.isArray(shopImages) && shopImages.length > 0)
+    updateData.shopImage = shopImages;
 
   // Validate FSSAI if provided
   if (fssaiNumber !== undefined) {
@@ -257,7 +220,12 @@ const addShopProduct = asyncHandler(async (req, res) => {
   }
 
   // Validate required fields
-  if (!productCategoryId || !priceIds || !Array.isArray(priceIds) || priceIds.length === 0) {
+  if (
+    !productCategoryId ||
+    !priceIds ||
+    !Array.isArray(priceIds) ||
+    priceIds.length === 0
+  ) {
     throw new ApiError(400, "productCategoryId and priceIds are required");
   }
 
@@ -282,7 +250,10 @@ const addShopProduct = asyncHandler(async (req, res) => {
   // If not global product, name and images are required
   if (!isGlobalProduct) {
     if (!name || !images || !Array.isArray(images) || images.length === 0) {
-      throw new ApiError(400, "Product name and images are required for custom products");
+      throw new ApiError(
+        400,
+        "Product name and images are required for custom products"
+      );
     }
   }
 
@@ -368,7 +339,8 @@ const updateShopProduct = asyncHandler(async (req, res) => {
 
   if (name) updateData.name = name;
   if (description !== undefined) updateData.description = description;
-  if (images && Array.isArray(images) && images.length > 0) updateData.images = images;
+  if (images && Array.isArray(images) && images.length > 0)
+    updateData.images = images;
 
   // Validate and update priceIds if provided
   if (priceIds && Array.isArray(priceIds) && priceIds.length > 0) {
