@@ -210,6 +210,7 @@ model ProductPrice {
   price           Float
   discount        Float       @default(0.0)
   weight          Int
+  stock           Int?
   unit            ProductUnit @default(grams)
   currency        String      @default("INR")
   globalProductId Int?
@@ -224,7 +225,8 @@ model ProductPrice {
 
 model GlobalProduct {
   id                Int      @id @default(autoincrement())
-  productCategoryId Int      @unique @map("category_id")
+  productCategoryId Int      @map("category_id")
+  brand             String?
   name              String
   description       String?
   images            String[]
@@ -249,6 +251,8 @@ model ShopProduct {
   globalProductId   Int?    @map("global_product_id")
   isGlobalProduct   Boolean @default(true) @map("is_global_product")
 
+  // Product Details
+  brand       String?
   name        String?
   description String?
   images      String[]
