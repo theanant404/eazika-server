@@ -4,18 +4,17 @@ import shopRouter from "./shop.route";
 import customerRouter from "./customer.route";
 import deliveryRouter from "./delivery.route";
 import fileuploadRouter from "./fileupload.route";
-
-// import adminRouter from "@/routes/admin.route";
-import * as auth from "../middlewares/auth.middleware.js";
+import adminRouter from "./admin.route";
 
 const router = Router();
 
 router.use("/users", userRouter);
 router.use("/shops", shopRouter);
-router.use("/customers", auth.authMiddleware, customerRouter);
+router.use("/customers", customerRouter);
 router.use("/delivery", deliveryRouter);
 router.use("/uploads", fileuploadRouter);
 
-// router.use("/admin", adminRouter);
+// Admin Routes
+router.use("/admin", adminRouter);
 
 export default router;
