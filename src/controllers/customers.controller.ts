@@ -2,6 +2,48 @@ import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
 
+/* -------Customer Propduct Controllers-------- */
+
+const getProjucts = asyncHandler(async (req, res) => {
+  // write steps to get all active products with their prices and peginate the results
+  // 1. Fetch active products from shopProduct table
+  // 2. Include productPrices and shopkeeper details
+  // 3. Paginate results based on query params page and limit
+  // 4. Return paginated products with total count
+
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const skip = (page - 1) * limit;
+
+  const [products, totalCount] = await prisma.$transaction([
+    prisma.shopProduct.findMany({
+      where: { isActive: true },
+      include: {
+        prices: true,
+        shopkeeper: true,
+        globalProduct: true,
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.shopProduct.count({
+      where: { isActive: true },
+    }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Products fetched successfully", {
+      products,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit),
+      },
+    })
+  );
+});
+
 /* -------Customer Cart Controllers-------- */
 
 /**
@@ -15,8 +57,16 @@ const addToCart = asyncHandler(async (req, res) => {
   const { shopProductId, productPriceId, quantity } = req.body;
 
   // Validate inputs
-  if (!shopProductId || !productPriceId || quantity === undefined || quantity < 1) {
-    throw new ApiError(400, "shopProductId, productPriceId, and quantity (>0) are required");
+  if (
+    !shopProductId ||
+    !productPriceId ||
+    quantity === undefined ||
+    quantity < 1
+  ) {
+    throw new ApiError(
+      400,
+      "shopProductId, productPriceId, and quantity (>0) are required"
+    );
   }
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
@@ -176,7 +226,9 @@ const updateCartItem = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Cart item updated successfully", updatedCartItem));
+    .json(
+      new ApiResponse(200, "Cart item updated successfully", updatedCartItem)
+    );
 });
 
 /**
@@ -546,6 +598,7 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
 });
 
 export {
+  getProjucts,
   addToCart,
   getCart,
   updateCartItem,
