@@ -76,4 +76,32 @@ const isShopkeeperOrAdmin = asyncHandler(async (req, _, next) => {
   next();
 });
 
-export { authMiddleware, isShopkeeper, isDeliveryBoy, isShopkeeperOrAdmin };
+const isAdmin = asyncHandler(async (req, _, next) => {
+  const token =
+    req.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "");
+  if (!token) throw new ApiError(401, "token missing");
+
+  const payload = verifyToken(token);
+  if (!payload) throw new ApiError(401, "Invalid Token");
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.id },
+  });
+  if (!user) throw new ApiError(401, "user_not_found");
+
+  if (user.role !== "admin") {
+    throw new ApiError(403, "Forbidden: Only admins can access this resource");
+  }
+
+  req.user = user;
+  next();
+});
+
+export {
+  authMiddleware,
+  isShopkeeper,
+  isDeliveryBoy,
+  isShopkeeperOrAdmin,
+  isAdmin,
+};
