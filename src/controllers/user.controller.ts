@@ -13,7 +13,7 @@ const { isNodeEnvDevelopment, jwtAccessTokenExpiresIn } = env;
 const cookieOptions: CookieOptions = {
   httpOnly: true,
   secure: !isNodeEnvDevelopment,
-  sameSite: "strict",
+  sameSite: "none",
   path: "/",
   maxAge: jwtAccessTokenExpiresIn * 1000,
 };
@@ -67,11 +67,17 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
   return res
     .cookie("refreshToken", refreshToken, cookieOptions)
     .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("userRole", user.role)
     .json(
       new ApiResponse(200, "OTP verified successfully", {
         accessToken,
-        expiresIn: "7d", // 7 days
-        user: { id: user.id, phone: user.phone, name: user.name },
+        refreshToken,
+        user: {
+          id: user.id,
+          phone: user.phone,
+          name: user.name,
+          role: user.role,
+        },
       })
     );
 });
@@ -134,10 +140,11 @@ const verifyLoginOtp = asyncHandler(async (req, res) => {
   return res
     .cookie("refreshToken", refreshToken, cookieOptions)
     .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("userRole", user.role)
     .json(
       new ApiResponse(200, "OTP verified successfully", {
         accessToken,
-        expiresIn: "7d", // 7 days
+        refreshToken,
         user: { id: user.id, phone: user.phone },
       })
     );
