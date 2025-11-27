@@ -9,4 +9,13 @@ interface PhoneOtpInterface {
   deviceInfo?: string;
 }
 
+interface PushNotificationPayload {
+  title: string;
+  body: string;
+  url?: string;
+  data?: {
+    [key: string]: any;
+  };
+}
+
 export { PhoneOtpInterface };
