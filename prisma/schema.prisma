@@ -247,7 +247,7 @@ model GlobalProduct {
 model ShopProduct {
   id                Int     @id @default(autoincrement())
   shopkeeperId      Int     @map("shopkeeper_id")
-  productCategoryId Int     @unique @map("category_id")
+  productCategoryId Int     @map("category_id")
   globalProductId   Int?    @map("global_product_id")
   isGlobalProduct   Boolean @default(true) @map("is_global_product")
 
