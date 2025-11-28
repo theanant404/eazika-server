@@ -2,7 +2,12 @@ import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
 import { shopRegistrationSchema } from "../validations/shop.validation";
+import {
+  shopProductSchema,
+  shopWithGlobalProductSchema,
+} from "../validations/product.validation";
 
+//  ========== Shop Management Controllers ==========
 const createShop = asyncHandler(async (req, res) => {
   // write a step to create shop profile for shopkeeper
   // 1. Validate request body using shopRegistrationSchema
@@ -94,18 +99,6 @@ const createShop = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Shop created successfully", created));
 });
 
-/**
- * Update shop profile
- * Request body: {
- *   shopName (optional),
- *   shopImages (optional),
- *   fssaiNumber (optional),
- *   gstNumber (optional),
- *   isActive (optional)
- * }
- * - Only shopkeeper can update their profile
- * - Validate uniqueness if FSSAI or GST is changed
- */
 const updateShop = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -177,120 +170,168 @@ const updateShop = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Shop updated successfully", updatedShopkeeper));
 });
 
-/**
- * Add product to shop
- * Request body: {
- *   productCategoryId (required),
- *   globalProductId (optional),
- *   name (required if not global product),
- *   description (optional),
- *   images (array, required if not global product),
- *   priceIds (array, required),
- *   stock (optional, defaults to 0),
- *   isGlobalProduct (optional, defaults to false)
- * }
- * Steps:
- * 1. Verify shopkeeper exists
- * 2. Validate product category exists
- * 3. Validate all price IDs exist
- * 4. If not global product, validate name and images
- * 5. Create shop product
- */
+// ========== Product Management Controllers ==========
+const getShopProducts = asyncHandler(async (req, res) => {
+  // write steps to get all shop products for authenticated shopkeeper with pagination
+  // 1. Parse page and limit from query params, set defaults if not provided
+  // 2. Calculate offset for pagination
+  // 3. Fetch shop products from DB with limit and offset
+  // 4. Return products with pagination info
+
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "10");
+  const offset = (page - 1) * limit;
+
+  const [products, total] = await prisma.$transaction([
+    prisma.shopProduct.findMany({
+      where: { shopkeeperId: req.user!.id },
+      skip: offset,
+      take: limit,
+      include: {
+        productCategories: true,
+        prices: true,
+        globalProduct: true,
+      },
+    }),
+    prisma.shopProduct.count({
+      where: { shopkeeperId: req.user!.id },
+    }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Shop products fetched successfully", {
+      products,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
+});
+
+const getGlobalProducts = asyncHandler(async (req, res) => {
+  // write steps to get all global products with pagination
+  // 1. Parse page and limit from query params, set defaults if not provided
+  // 2. Calculate offset for pagination
+  // 3. Fetch global products from DB with limit and offset
+  // 4. Return products with pagination info
+
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "10");
+  const offset = (page - 1) * limit;
+  const [products, total] = await prisma.$transaction([
+    prisma.globalProduct.findMany({
+      skip: offset,
+      take: limit,
+      include: {
+        productCategories: true,
+        prices: true,
+      },
+    }),
+    prisma.globalProduct.count(),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Global products fetched successfully", {
+      products,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
+});
+
 const addShopProduct = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
+  // write steps to add a new product to shop
+  // 1. Validate request body using shopProductSchema
+  // 2. Create shop product entry in DB
+  // 3. Return created product
 
-  const {
-    productCategoryId,
-    globalProductId,
-    name,
-    description,
-    images,
-    priceIds,
-    stock,
-    isGlobalProduct,
-  } = req.body;
+  const payload = shopProductSchema.parse(req.body);
 
-  // Find shopkeeper
-  const shopkeeper = await prisma.shopkeeper.findUnique({
-    where: { userId: req.user.id },
-  });
-
-  if (!shopkeeper) {
-    throw new ApiError(404, "Shop profile not found");
-  }
-
-  // Validate required fields
-  if (
-    !productCategoryId ||
-    !priceIds ||
-    !Array.isArray(priceIds) ||
-    priceIds.length === 0
-  ) {
-    throw new ApiError(400, "productCategoryId and priceIds are required");
-  }
-
-  // Verify product category exists
-  const category = await prisma.productCategory.findUnique({
-    where: { id: productCategoryId },
-  });
-
-  if (!category) {
-    throw new ApiError(404, "Product category not found");
-  }
-
-  // Validate all price IDs exist
-  const prices = await prisma.productPrice.findMany({
-    where: { id: { in: priceIds } },
-  });
-
-  if (prices.length !== priceIds.length) {
-    throw new ApiError(400, "Some product prices not found");
-  }
-
-  // If not global product, name and images are required
-  if (!isGlobalProduct) {
-    if (!name || !images || !Array.isArray(images) || images.length === 0) {
-      throw new ApiError(
-        400,
-        "Product name and images are required for custom products"
-      );
-    }
-  }
-
-  // If global product, verify it exists
-  if (isGlobalProduct && globalProductId) {
-    const globalProduct = await prisma.globalProduct.findUnique({
-      where: { id: globalProductId },
+  const product = await prisma.$transaction(async (tx) => {
+    const shopkeeper = await tx.shopkeeper.findUnique({
+      where: { userId: req.user!.id },
+      select: { id: true },
     });
+    if (!shopkeeper)
+      throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
+    const newProduct = await tx.shopProduct.create({
+      data: {
+        shopkeeperId: shopkeeper.id,
+        productCategoryId: payload.productCategoryId,
+        isGlobalProduct: false,
+        name: payload.name,
+        brand: payload.brand,
+        description: payload.description,
+        images: payload.images,
+        prices: { createMany: { data: payload.pricing } },
+      },
+    });
+    if (!newProduct) throw new ApiError(500, "Failed to add product");
 
-    if (!globalProduct) {
-      throw new ApiError(404, "Global product not found");
-    }
-  }
-
-  // Create shop product
-  const shopProduct = await prisma.shopProduct.create({
-    data: {
-      shopkeeperId: shopkeeper.id,
-      productCategoryId,
-      globalProductId: isGlobalProduct ? globalProductId : null,
-      name: name || null,
-      description: description || null,
-      images: images || [],
-      priceIds,
-      stock: stock || 0,
-      isGlobalProduct: isGlobalProduct || false,
-    },
-    include: {
-      prices: true,
-      globalProduct: true,
-      productCategories: true,
-    },
+    return newProduct;
   });
+
+  if (!product) throw new ApiError(500, "Failed to add product");
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "Product added successfully", shopProduct));
+    .json(new ApiResponse(201, "Product added successfully", product));
+});
+
+const addShopGlobalProduct = asyncHandler(async (req, res) => {
+  // write steps to add a new product to shop linked to global product
+  // 1. Validate request body using shopProductSchema
+  // 2. Check if global product exists
+  // 3. Create shop product entry in DB linked to global product
+  // 4. Return created product
+
+  const payload = shopWithGlobalProductSchema.parse(req.body);
+
+  const product = await prisma.$transaction(async (tx) => {
+    const shopkeeper = await tx.shopkeeper.findUnique({
+      where: { userId: req.user!.id },
+      select: { id: true },
+    });
+    if (!shopkeeper)
+      throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
+
+    // Check if global product exists
+    const globalProduct = await tx.globalProduct.findUnique({
+      where: { id: payload.globalProductId },
+    });
+    if (!globalProduct) throw new ApiError(404, "Global product not found");
+
+    const newProduct = await tx.shopProduct.create({
+      data: {
+        shopkeeperId: shopkeeper.id,
+        productCategoryId: payload.productCategoryId,
+        isGlobalProduct: true,
+        globalProductId: payload.globalProductId,
+        prices: { createMany: { data: payload.pricing } },
+      },
+      include: {
+        prices: true,
+        globalProduct: true,
+        productCategories: true,
+      },
+    });
+    if (!newProduct) throw new ApiError(500, "Failed to add product");
+
+    return newProduct;
+  });
+
+  if (!product) throw new ApiError(500, "Failed to add product");
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "Product added successfully", product));
 });
 
 /**
@@ -537,6 +578,9 @@ const sendInviteToDeliveryPartner = asyncHandler(async (req, res) => {
 export {
   createShop,
   updateShop,
+  getShopProducts,
+  getGlobalProducts,
+  addShopGlobalProduct,
   addShopProduct,
   updateShopProduct,
   updateShopProductStock,
