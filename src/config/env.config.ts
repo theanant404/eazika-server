@@ -39,9 +39,9 @@ const _env = {
   smtpPassword: process.env.SMTP_PASSWORD,
 
   // push notification
-  // vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
-  // vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
-  // vapidSubject: process.env.VAPID_SUBJECT,
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY!,
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY!,
+  vapidSubject: process.env.VAPID_SUBJECT!,
 };
 
 const env = Object.freeze(_env);
