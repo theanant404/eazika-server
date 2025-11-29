@@ -8,9 +8,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//  Eazika Prisma Schema
+//  ************************** Eazika Database Schema **************************  //
 
-// Eazika Enums
+// * =========================== Enums =========================== *
 
 enum Role {
   user //customer
@@ -57,7 +57,17 @@ enum ProductUnit {
   piece
 }
 
-// Eazika Data Models
+enum DivicType {
+  android
+  ios
+  tablet
+  mobile_web
+  desktop_web
+  tablet_web
+  other
+}
+
+// * =========================== Eazika Models =========================== *
 
 model User {
   id               Int     @id @default(autoincrement())
@@ -77,11 +87,12 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  address     Address[]    @relation("User_addresses")
-  shopkeeper  Shopkeeper?
-  deliveryBoy DeliveryBoy?
-  cartItems   CartItem[]
-  orders      Order[]
+  address           Address[]          @relation("User_addresses")
+  shopkeeper        Shopkeeper?
+  deliveryBoy       DeliveryBoy?
+  cartItems         CartItem[]
+  orders            Order[]
+  pushNotifications PushNotification[]
 
   @@map("users")
 }
@@ -346,7 +357,7 @@ model Order {
   @@map("orders")
 }
 
-// * ----- Notification & OTP Models ----- *
+// * =========================== OTP and Notification Models =========================== *
 
 model PhoneOtpHistory {
   id        Int      @id @default(autoincrement())
@@ -374,16 +385,36 @@ model EmailOtpHistory {
   @@map("email_otp_histories")
 }
 
-model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  title     String
-  message   String
-  isRead    Boolean  @default(false) @map("is_read")
-  createdAt DateTime @default(now())
+model PushNotification {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  phone          String
+  expirationTime DateTime? @map("expiration_time")
+  endpoint       String
+  authKey        String    @map("auth_key")
+  p256dhKey      String    @map("p256dh_key")
+  userDevice     String?   @map("user_device")
+  deviceType     DivicType @default(other) @map("device_type")
+  createdAt      DateTime  @default(now())
+
+  user                      User                      @relation(fields: [id], references: [id])
+  pushNotificationHistories PushNotificationHistory[]
+
+  @@map("push_notifications")
+}
+
+model PushNotificationHistory {
+  id                 Int      @id @default(autoincrement())
+  pushNotificationId Int      @map("push_notification_id")
+  title              String
+  body               String
+  url                String
+  data               String?
+  isRead             Boolean  @default(false) @map("is_read")
+  createdAt          DateTime @default(now())
 
   // Relations
-  // user User @relation(fields: [userId], references: [id])
+  pushNotification PushNotification @relation(fields: [pushNotificationId], references: [id])
 
-  @@map("notifications")
+  @@map("push_notification_histories")
 }
