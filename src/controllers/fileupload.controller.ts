@@ -3,8 +3,12 @@ import { ApiError, ApiResponse } from "../utils/apiHandler";
 import env from "../config/env.config";
 
 import { Storage } from "@google-cloud/storage";
+import path from "node:path";
 
-const storage = new Storage({ keyFilename: "key.json" });
+const storage = new Storage({
+  // resolve from project root so compiled dist build can still reach the key
+  keyFilename: path.resolve(process.cwd(), "key.json"),
+});
 
 // ROUTE => POST http://localhost:5000/api/v2/uploads/profile-picture
 const uploadProfilePicture = asyncHandler(async (req, res) => {
