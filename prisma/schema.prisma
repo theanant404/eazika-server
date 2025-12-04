@@ -93,6 +93,7 @@ model User {
   cartItems         CartItem[]
   orders            Order[]
   pushNotifications PushNotification[]
+  productRatings    ProductRating[]
 
   @@map("users")
 }
@@ -280,10 +281,30 @@ model ShopProduct {
   prices            ProductPrice[]
   globalProduct     GlobalProduct?  @relation(fields: [globalProductId], references: [id])
   cartItems         CartItem[]
-  productCategories ProductCategory @relation(fields: [productCategoryId], references: [id])
+  productCategories ProductCategory @relation(fields: productCategoryId, references: id)
   orderItems        OrderItem[]
+  productRatings    ProductRating[]
 
   @@map("shop_products")
+}
+
+model ProductRating {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  shopProductId Int      @map("shop_product_id")
+  rating        Int
+  review        String?
+  images        String[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user        User        @relation(fields: userId, references: id)
+  shopProduct ShopProduct @relation(fields: shopProductId, references: id)
+
+  @@map("product_ratings")
 }
 
 model ProductCategory {
