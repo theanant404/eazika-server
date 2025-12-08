@@ -16,6 +16,9 @@ CREATE TYPE "CancelBy" AS ENUM ('user', 'shopkeeper', 'delivery_boy', 'admin');
 -- CreateEnum
 CREATE TYPE "ProductUnit" AS ENUM ('grams', 'kg', 'ml', 'litre', 'piece');
 
+-- CreateEnum
+CREATE TYPE "DivicType" AS ENUM ('android', 'ios', 'tablet', 'mobile_web', 'desktop_web', 'tablet_web', 'other');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" SERIAL NOT NULL,
@@ -127,6 +130,7 @@ CREATE TABLE "ProductPrice" (
     "price" DOUBLE PRECISION NOT NULL,
     "discount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "weight" INTEGER NOT NULL,
+    "stock" INTEGER,
     "unit" "ProductUnit" NOT NULL DEFAULT 'grams',
     "currency" TEXT NOT NULL DEFAULT 'INR',
     "globalProductId" INTEGER,
@@ -139,6 +143,7 @@ CREATE TABLE "ProductPrice" (
 CREATE TABLE "global_products" (
     "id" SERIAL NOT NULL,
     "category_id" INTEGER NOT NULL,
+    "brand" TEXT,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "images" TEXT[],
@@ -156,6 +161,7 @@ CREATE TABLE "shop_products" (
     "category_id" INTEGER NOT NULL,
     "global_product_id" INTEGER,
     "is_global_product" BOOLEAN NOT NULL DEFAULT true,
+    "brand" TEXT,
     "name" TEXT,
     "description" TEXT,
     "images" TEXT[],
@@ -166,6 +172,20 @@ CREATE TABLE "shop_products" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "shop_products_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "product_ratings" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "shop_product_id" INTEGER NOT NULL,
+    "rating" INTEGER NOT NULL,
+    "review" TEXT,
+    "images" TEXT[],
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "product_ratings_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -195,6 +215,9 @@ CREATE TABLE "order_items" (
     "id" SERIAL NOT NULL,
     "shop_product_id" INTEGER NOT NULL,
     "product_price_id" INTEGER NOT NULL,
+    "price" DOUBLE PRECISION NOT NULL,
+    "weight" INTEGER NOT NULL,
+    "unit" "ProductUnit" NOT NULL DEFAULT 'grams',
     "quantity" INTEGER NOT NULL DEFAULT 1,
     "orderId" INTEGER,
 
@@ -209,6 +232,7 @@ CREATE TABLE "orders" (
     "total_products" INTEGER NOT NULL,
     "total_amount" DOUBLE PRECISION NOT NULL,
     "address_id" INTEGER NOT NULL,
+    "order_items_ids" INTEGER[],
     "payment_method" "PaymentMethod" NOT NULL,
     "cancel_by" "CancelBy",
     "cancel_reason" TEXT,
@@ -248,15 +272,33 @@ CREATE TABLE "email_otp_histories" (
 );
 
 -- CreateTable
-CREATE TABLE "notifications" (
+CREATE TABLE "push_notifications" (
     "id" SERIAL NOT NULL,
     "user_id" INTEGER NOT NULL,
+    "phone" TEXT NOT NULL,
+    "expiration_time" TIMESTAMP(3),
+    "endpoint" TEXT NOT NULL,
+    "auth_key" TEXT NOT NULL,
+    "p256dh_key" TEXT NOT NULL,
+    "user_device" TEXT,
+    "device_type" "DivicType" NOT NULL DEFAULT 'other',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "push_notifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "push_notification_histories" (
+    "id" SERIAL NOT NULL,
+    "push_notification_id" INTEGER NOT NULL,
     "title" TEXT NOT NULL,
-    "message" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "data" TEXT,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "push_notification_histories_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -294,12 +336,6 @@ CREATE UNIQUE INDEX "delivery_boys_license_number_key" ON "delivery_boys"("licen
 
 -- CreateIndex
 CREATE UNIQUE INDEX "delivery_boys_vehicle_no_key" ON "delivery_boys"("vehicle_no");
-
--- CreateIndex
-CREATE UNIQUE INDEX "global_products_category_id_key" ON "global_products"("category_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "shop_products_category_id_key" ON "shop_products"("category_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "product_categories_name_key" ON "product_categories"("name");
@@ -347,6 +383,12 @@ ALTER TABLE "shop_products" ADD CONSTRAINT "shop_products_global_product_id_fkey
 ALTER TABLE "shop_products" ADD CONSTRAINT "shop_products_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "product_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "product_ratings" ADD CONSTRAINT "product_ratings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "product_ratings" ADD CONSTRAINT "product_ratings_shop_product_id_fkey" FOREIGN KEY ("shop_product_id") REFERENCES "shop_products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -372,3 +414,9 @@ ALTER TABLE "orders" ADD CONSTRAINT "orders_address_id_fkey" FOREIGN KEY ("addre
 
 -- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_assigned_delivery_boy_id_fkey" FOREIGN KEY ("assigned_delivery_boy_id") REFERENCES "delivery_boys"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "push_notifications" ADD CONSTRAINT "push_notifications_id_fkey" FOREIGN KEY ("id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "push_notification_histories" ADD CONSTRAINT "push_notification_histories_push_notification_id_fkey" FOREIGN KEY ("push_notification_id") REFERENCES "push_notifications"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
