@@ -113,3 +113,21 @@ export const shopWithGlobalProductSchema = zod.object({
     )
     .min(1, "At least one pricing option is required"),
 });
+
+export const createOrderSchema = zod.object({
+  addressId: zod.number().int("Address ID must be an integer"),
+  paymentMethod: zod.enum(
+    ["cash_on_delivery", "online_payment"],
+    "Invalid payment method"
+  ),
+  orderItems: zod.array(
+    zod.object({
+      productId: zod.number(),
+      priceId: zod.number(),
+      quantity: zod
+        .number()
+        .int("Quantity must be an integer")
+        .min(1, "Quantity must be at least 1"),
+    })
+  ),
+});

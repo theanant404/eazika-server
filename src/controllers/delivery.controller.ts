@@ -117,7 +117,9 @@ const createDeliveryProfile = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "Delivery profile created successfully", deliveryBoy));
+    .json(
+      new ApiResponse(201, "Delivery profile created successfully", deliveryBoy)
+    );
 });
 
 /**
@@ -181,7 +183,11 @@ const updateDeliveryProfile = asyncHandler(async (req, res) => {
   }
 
   // Update licenseImages if provided
-  if (licenseImages !== undefined && Array.isArray(licenseImages) && licenseImages.length > 0) {
+  if (
+    licenseImages !== undefined &&
+    Array.isArray(licenseImages) &&
+    licenseImages.length > 0
+  ) {
     updateData.licenseImage = licenseImages;
   }
 
@@ -198,7 +204,11 @@ const updateDeliveryProfile = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, "Delivery profile updated successfully", updatedDeliveryBoy)
+      new ApiResponse(
+        200,
+        "Delivery profile updated successfully",
+        updatedDeliveryBoy
+      )
     );
 });
 
@@ -253,8 +263,8 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
       address: true,
       orderItems: {
         include: {
-          shopProduct: true,
-          productPrice: true,
+          // shopProduct: true,
+          // productPrice: true,
         },
       },
     },

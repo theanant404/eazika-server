@@ -109,11 +109,11 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
   if (typeof phone !== "string" || !/^\d{10}$/.test(phone))
     throw new ApiError(400, "Phone number must be exactly 10 digits");
 
-  const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user) throw new ApiError(404, "user_not_found");
+  // const user = await prisma.user.findUnique({ where: { phone } });
+  // if (!user) throw new ApiError(404, "user_not_found");
 
   // rate-limiting should be applied in production
-  const { requestId } = await createAndSendOtp(phone, user.name);
+  const { requestId } = await createAndSendOtp(phone, "");
   return res
     .status(200)
     .json(new ApiResponse(200, "OTP requested successfully", { requestId }));
@@ -220,11 +220,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   // 1. get user from req (set by auth middleware)
   // 2. return response
 
-  const userId = req.user?.id;
-  if (!userId) throw new ApiError(401, "Unauthorized");
-
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: req.user?.id },
     select: {
       id: true,
       phone: true,
@@ -238,11 +235,36 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       },
     },
   });
-  if (!user) throw new ApiError(404, "user_not_found");
+  if (!user) throw new ApiError(404, "user not found");
+
+  const formatedUser = {
+    id: user.id,
+    name: user.name,
+    phone: user.phone,
+
+    email: user.email,
+    role: user.role,
+    addresses: user.address.map((addr) => ({
+      id: addr.id,
+      isDefult: addr.id === user.defaultAddressId,
+      name: addr.name,
+      phone: addr.phone,
+      line1: addr.line1,
+      line2: addr.line2,
+      street: addr.street,
+      city: addr.city,
+      state: addr.state,
+      country: addr.country,
+      pinCode: addr.pinCode,
+      geoLocation: addr.geoLocation,
+    })),
+  };
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "User fetched successfully", { user }));
+    .json(
+      new ApiResponse(200, "User fetched successfully", { user: formatedUser })
+    );
 });
 
 const updateCurrentUser = asyncHandler(async (req, res) => {
@@ -324,7 +346,7 @@ const addNewAddress = asyncHandler(async (req, res) => {
       geoLocation: payload.geoLocation,
     },
   });
-  if (!newAddress) throw new ApiError(500, "address_creation_failed");
+  if (!newAddress) throw new ApiError(500, "Address creation failed");
   return res.status(201).json(
     new ApiResponse(201, "Address added successfully", {
       address: newAddress,
@@ -344,19 +366,10 @@ const updateAddress = asyncHandler(async (req, res) => {
 
   if (!userId) throw new ApiError(401, "Unauthorized");
 
-  if (isNaN(addressId) || addressId <= 0)
-    throw new ApiError(400, "Invalid address ID");
-
   const payload = userSchemas.userAddressSchema.parse(req.body);
 
-  const address = await prisma.address.findUnique({
-    where: { id: addressId },
-  });
-  if (!address || address.userId !== userId)
-    throw new ApiError(404, "address_not_found");
-
   const updatedAddress = await prisma.address.update({
-    where: { id: addressId },
+    where: { id: addressId, userId },
     data: { ...payload },
   });
   return res.status(200).json(
@@ -380,16 +393,13 @@ const deleteAddress = asyncHandler(async (req, res) => {
   if (isNaN(addressId) || addressId <= 0)
     throw new ApiError(400, "Invalid address ID");
 
-  const address = await prisma.address.findUnique({
-    where: { id: addressId },
-  });
-  if (!address || address.userId !== userId)
-    throw new ApiError(404, "address_not_found");
-
-  await prisma.address.update({
-    where: { id: addressId },
+  const updatedAddress = await prisma.address.update({
+    where: { id: addressId, userId },
     data: { isDeleted: true },
   });
+
+  if (!updatedAddress) throw new ApiError(404, "Address not found");
+
   return res
     .status(200)
     .json(new ApiResponse(200, "Address deleted successfully"));

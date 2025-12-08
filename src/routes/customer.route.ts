@@ -5,7 +5,18 @@ import { authMiddleware } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 /* ----------- Product Browsing Routes ----------- */
-router.get("/products", customer.getProjucts);
+router.get("/products", customer.getProducts);
+router.get("/products/:productId", customer.getProductById);
+
+/* ---------------------- Cart Management Routes ------------------- */
+const cart = Router();
+router.use("/carts", authMiddleware, cart);
+
+cart.get("/get-cart", customer.getCart);
+cart.post("/add-to-cart", customer.addToCart);
+cart.put("/update-cart-item/:itemId", customer.updateCartItem);
+cart.delete("/remove-cart-item/:itemId", customer.removeCartItem);
+cart.delete("/clear-cart", customer.clearCart);
 
 /* ----------- Shopping Cart Routes ----------- */
 router.post("/add-to-cart", authMiddleware, customer.addToCart);

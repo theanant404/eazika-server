@@ -1,283 +1,323 @@
 import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
+import { createOrderSchema } from "../validations/product.validation";
 
-/* -------Customer Propduct Controllers-------- */
+/* ================================= Customer Products Controllers ============================ */
 
-const getProjucts = asyncHandler(async (req, res) => {
+const getProducts = asyncHandler(async (req, res) => {
   // write steps to get all active products with their prices and peginate the results
   // 1. Fetch active products from shopProduct table
   // 2. Include productPrices and shopkeeper details
   // 3. Paginate results based on query params page and limit
   // 4. Return paginated products with total count
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
-  const skip = (page - 1) * limit;
+  const pagination =
+    (req.query.pagination as {
+      currentPage: string;
+      itemsPerPage: string;
+    }) || {};
+  const currentPage = parseInt(pagination.currentPage || "1");
+  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const skip = (currentPage - 1) * itemsPerPage;
 
   const [products, totalCount] = await prisma.$transaction([
     prisma.shopProduct.findMany({
       where: { isActive: true },
       include: {
-        prices: true,
-        shopkeeper: true,
+        prices: {
+          select: {
+            id: true,
+            price: true,
+            discount: true,
+            weight: true,
+            unit: true,
+          },
+        },
         globalProduct: true,
+        productCategories: true,
       },
       skip,
-      take: limit,
+      take: itemsPerPage,
     }),
     prisma.shopProduct.count({
       where: { isActive: true },
     }),
   ]);
 
+  const filteredProducts = products.map((p) => {
+    const isGlobal = p.isGlobalProduct;
+    return {
+      id: p.id,
+      isGlobalProduct: p.isGlobalProduct,
+      category: p.productCategories.name,
+      brand: isGlobal ? p.globalProduct?.brand : p.brand,
+      name: isGlobal ? p.globalProduct?.name : p.name,
+      description: isGlobal ? p.globalProduct?.description : p.description,
+      images: isGlobal ? p.globalProduct?.images : p.images,
+      prices: p.prices,
+    };
+  });
+
   return res.status(200).json(
     new ApiResponse(200, "Products fetched successfully", {
-      products,
+      products: filteredProducts,
       pagination: {
-        page,
-        limit,
-        total: totalCount,
-        pages: Math.ceil(totalCount / limit),
+        currentPage,
+        itemsPerPage,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
       },
     })
   );
 });
 
-/* -------Customer Cart Controllers-------- */
+const getProductById = asyncHandler(async (req, res) => {
+  // write steps to get product by ID with its prices and ratings
+  // 1. Fetch product from shopProduct table by ID
+  // 2. Include productPrices, globalProduct details and ratings with user info
+  // 3. Calculate average rating and total number of ratings
+  // 4. Return product details along with ratings summary
 
-/**
- * Add items to cart
- * Request body: { shopProductId, productPriceId, quantity }
- * - Check if item already exists in cart
- * - If yes, update quantity; if no, create new cart item
- * - Validate product is active and price exists
- */
-const addToCart = asyncHandler(async (req, res) => {
-  const { shopProductId, productPriceId, quantity } = req.body;
+  const { productId } = req.params;
+  console.log("Fetching product with ID:", productId);
 
-  // Validate inputs
-  if (
-    !shopProductId ||
-    !productPriceId ||
-    quantity === undefined ||
-    quantity < 1
-  ) {
-    throw new ApiError(
-      400,
-      "shopProductId, productPriceId, and quantity (>0) are required"
-    );
+  if (!productId) {
+    throw new ApiError(400, "productId is required");
   }
 
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  // Verify shop product exists and is active
-  const shopProduct = await prisma.shopProduct.findUnique({
-    where: { id: shopProductId },
-  });
-
-  if (!shopProduct || !shopProduct.isActive) {
-    throw new ApiError(404, "Product not found or inactive");
-  }
-
-  // Verify product price exists
-  const productPrice = await prisma.productPrice.findUnique({
-    where: { id: productPriceId },
-  });
-
-  if (!productPrice) {
-    throw new ApiError(404, "Product price not found");
-  }
-
-  // Check if item already exists in cart
-  const existingCartItem = await prisma.cartItem.findFirst({
-    where: {
-      userId: req.user.id,
-      shopProductId,
-      productPriceId,
+  // Fetch product by ID
+  const product = await prisma.shopProduct.findUnique({
+    where: { id: parseInt(productId), isActive: true },
+    include: {
+      prices: {
+        select: {
+          id: true,
+          price: true,
+          discount: true,
+          weight: true,
+          unit: true,
+        },
+      },
+      globalProduct: true,
+      productCategories: true,
+      ratings: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      },
     },
   });
 
-  let cartItem;
-  if (existingCartItem) {
-    // Update quantity if already exists
-    cartItem = await prisma.cartItem.update({
-      where: { id: existingCartItem.id },
-      data: { quantity: existingCartItem.quantity + quantity },
-      include: {
-        productPrice: true,
-        shopProduct: true,
-      },
-    });
-  } else {
-    // Create new cart item
-    cartItem = await prisma.cartItem.create({
-      data: {
-        userId: req.user.id,
-        shopProductId,
-        productPriceId,
-        quantity,
-      },
-      include: {
-        productPrice: true,
-        shopProduct: true,
-      },
-    });
+  if (!product || !product.isActive) {
+    throw new ApiError(404, "Product not found or inactive");
   }
+
+  const isGlobal = product.isGlobalProduct;
+  let tatalRating = 0;
+
+  const productData = {
+    id: product.id,
+    isGlobalProduct: product.isGlobalProduct,
+    category: product.productCategories.name,
+    brand: isGlobal ? product.globalProduct?.brand : product.brand,
+    name: isGlobal ? product.globalProduct?.name : product.name,
+    description: isGlobal
+      ? product.globalProduct?.description
+      : product.description,
+    images: isGlobal ? product.globalProduct?.images : product.images,
+    prices: product.prices,
+    rating: {
+      ratings: product.ratings.map((r) => {
+        tatalRating += r.rating;
+        return {
+          id: r.id,
+          userId: r.user.id,
+          userName: r.user.name,
+          userImage: r.user.image,
+          review: r.review,
+          rating: r.rating,
+          createdAt: r.createdAt,
+        };
+      }),
+      rate: tatalRating / product.ratings.length || 0,
+      count: product.ratings.length,
+    },
+  };
+
+  return res.status(200).json(
+    new ApiResponse(200, "Product fetched successfully", {
+      product: productData,
+    })
+  );
+});
+
+/* ================================= Customer Cart Controllers ============================ */
+
+const addToCart = asyncHandler(async (req, res) => {
+  // write steps to add item to cart
+  // 1. Validate request body for shopProductId, productPriceId, and quantity
+  // 2. Check if product is active and price exists
+  // 3. Check if cart item already exists for user
+  // 4. If exists, update quantity; else create new cart item
+  // 5. Return cart item details
+
+  const { productId, priceId, quantity } = req.body;
+  console.log(
+    "productId:",
+    productId,
+    "priceId:",
+    priceId,
+    "quantity:",
+    quantity
+  );
+  console.log("Adding to cart:", req.body.data);
+
+  // Validate inputs
+  if (!(productId || priceId || parseInt(quantity) < 0))
+    throw new ApiError(400, "productId, priceId and quantity are required");
+
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const item = prisma.$transaction(async (tx) => {
+    const product = await tx.shopProduct.findUnique({
+      where: {
+        id: productId,
+        isActive: true,
+      },
+      include: {
+        prices: { where: { id: priceId } },
+      },
+    });
+
+    if (!product) throw new ApiError(404, "Product not found or inactive");
+
+    return tx.cartItem.create({
+      data: {
+        userId: req.user?.id!,
+        shopProductId: productId,
+        productPriceId: priceId,
+        quantity: quantity,
+      },
+      include: {
+        productPrice: true,
+        shopProduct: true,
+      },
+    });
+  });
+  if (!item) throw new ApiError(500, "Failed to add item to cart");
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "Item added to cart successfully", cartItem));
+    .json(new ApiResponse(201, "Item added to cart successfully", item));
 });
 
-/**
- * Get all cart items for user
- * Returns: Array of cart items with product and price details
- * - Calculate total price: (price - discount) * quantity for each item
- * - Calculate total quantity across all items
- */
 const getCart = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
+  // write steps to get all cart items for the authenticated user
+  // 1. Fetch cart items from the database for the user
+  // 2. Include shopProduct and productPrice details
+  // 3. Return cart items
 
   const cartItems = await prisma.cartItem.findMany({
-    where: { userId: req.user.id },
+    where: { userId: req.user?.id },
     include: {
       shopProduct: {
         include: {
-          shopkeeper: true,
+          globalProduct: true,
         },
       },
       productPrice: true,
     },
   });
 
-  if (!cartItems || cartItems.length === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, "Cart is empty", {
-        items: [],
-        totalItems: 0,
-        totalPrice: 0,
-      })
-    );
-  }
+  const items = cartItems.map((i) => {
+    const isGlobal = i.shopProduct.isGlobalProduct;
+    return {
+      id: i.id,
+      userId: i.userId,
+      productId: i.shopProductId,
+      priceId: i.productPriceId,
+      quantity: i.quantity,
+      product: {
+        name: isGlobal ? i.shopProduct.globalProduct?.name : i.shopProduct.name,
+        description: isGlobal
+          ? i.shopProduct.globalProduct?.description
+          : i.shopProduct.description,
+        image: isGlobal
+          ? i.shopProduct.globalProduct?.images[0]
+          : i.shopProduct.images[0],
+        price: i.productPrice!.price,
+      },
+    };
+  });
 
-  // Calculate totals
-  let totalPrice = 0;
-  let totalItems = 0;
+  if (!cartItems) throw new ApiError(500, "Failed to fetch cart items");
 
-  for (const item of cartItems) {
-    if (item.productPrice) {
-      const itemPrice = item.productPrice.price - item.productPrice.discount;
-      totalPrice += itemPrice * item.quantity;
-    }
-    totalItems += item.quantity;
-  }
-
-  return res.status(200).json(
-    new ApiResponse(200, "Cart fetched successfully", {
-      items: cartItems,
-      totalItems,
-      totalPrice,
-    })
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Cart fetched successfully", { items }));
 });
 
-/**
- * Update cart item quantity
- * Request params: itemId (CartItem.id)
- * Request body: { quantity }
- * - Validate cart item belongs to user
- * - Update quantity to new value
- */
 const updateCartItem = asyncHandler(async (req, res) => {
+  // write steps to update cart item quantity
+  // 1. Validate request params for itemId and body for quantity
+  // 2. Check if cart item exists and belongs to user
+  // 3. Update cart item quantity
+  // 4. Return updated cart item details
+
   const { itemId } = req.params;
   const { quantity } = req.body;
 
-  // Validate inputs
-  if (!itemId || quantity === undefined || quantity < 1) {
-    throw new ApiError(400, "itemId and quantity (>0) are required");
-  }
+  if (!itemId) throw new ApiError(400, "itemId is required");
+  if (parseInt(quantity) < 0)
+    throw new ApiError(400, "quantity must be a positive integer");
 
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  // Find cart item
-  const cartItem = await prisma.cartItem.findUnique({
-    where: { id: parseInt(itemId) },
+  const cartItem = await prisma.cartItem.update({
+    where: { id: parseInt(itemId), userId: req.user?.id },
+    data: { quantity: parseInt(quantity) },
   });
 
-  if (!cartItem) {
-    throw new ApiError(404, "Cart item not found");
-  }
-
-  // Security: Verify cart item belongs to user
-  if (cartItem.userId !== req.user.id) {
-    throw new ApiError(403, "Unauthorized: Cart item doesn't belong to user");
-  }
-
-  // Update cart item quantity
-  const updatedCartItem = await prisma.cartItem.update({
-    where: { id: cartItem.id },
-    data: { quantity },
-    include: {
-      productPrice: true,
-      shopProduct: true,
-    },
-  });
+  if (!cartItem) throw new ApiError(500, "Failed to update cart item");
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, "Cart item updated successfully", updatedCartItem)
-    );
+    .json(new ApiResponse(200, "Cart item updated successfully", cartItem));
 });
 
-/**
- * Remove item from cart
- * Request params: itemId (CartItem.id)
- * - Delete cart item if it belongs to user
- */
 const removeCartItem = asyncHandler(async (req, res) => {
+  // write steps to remove cart item
+  // 1. Validate request params for itemId
+  // 2. Check if cart item exists and belongs to user
+  // 3. Delete cart item
+  // 4. Return success response
+
   const { itemId } = req.params;
 
-  if (!itemId) {
-    throw new ApiError(400, "itemId is required");
-  }
+  if (!itemId) throw new ApiError(400, "itemId is required");
 
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  // Find cart item
-  const cartItem = await prisma.cartItem.findUnique({
-    where: { id: parseInt(itemId) },
+  const deletedItem = await prisma.cartItem.deleteMany({
+    where: { id: parseInt(itemId), userId: req.user?.id },
   });
-
-  if (!cartItem) {
-    throw new ApiError(404, "Cart item not found");
-  }
-
-  // Security: Verify cart item belongs to user
-  if (cartItem.userId !== req.user.id) {
-    throw new ApiError(403, "Unauthorized: Cart item doesn't belong to user");
-  }
-
-  // Delete cart item
-  await prisma.cartItem.delete({
-    where: { id: cartItem.id },
-  });
+  if (deletedItem.count === 0)
+    throw new ApiError(404, "Cart item not found or doesn't belong to user");
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Item removed from cart successfully"));
+    .json(new ApiResponse(200, "Cart item removed successfully"));
 });
 
-/**
- * Clear entire cart for user
- * - Delete all cart items for authenticated user
- */
 const clearCart = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
+  // write steps to clear all cart items for the authenticated user
+  // 1. Delete all cart items from the database for the user
+  // 2. Return success response
   await prisma.cartItem.deleteMany({
-    where: { userId: req.user.id },
+    where: { userId: req.user?.id },
   });
 
   return res
@@ -285,90 +325,85 @@ const clearCart = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Cart cleared successfully"));
 });
 
-/* -------Customer Order Controllers-------- */
+/* ================================= Customer Order Controllers ============================ */
 
-/**
- * Create order from cart
- * Request body: { addressId, paymentMethod }
- * Steps:
- * 1. Validate address belongs to user
- * 2. Fetch user's cart items
- * 3. Calculate total amount and total products
- * 4. Create order with order items
- * 5. Clear user's cart
- * 6. Return order with details
- */
 const createOrder = asyncHandler(async (req, res) => {
-  const { addressId, paymentMethod } = req.body;
+  // write steps to create order
+  // 1. Validate request body for addressId and paymentMethod
+  // 2. Verify address belongs to user
+  // 3. Fetch cart items for user
+  // 4. Calculate total amount and total products
+  // 5. Create order with order items
+  // 6. Clear user's cart
+  // 7. Return order details
 
-  // Validate inputs
-  if (!addressId || !paymentMethod) {
-    throw new ApiError(400, "addressId and paymentMethod are required");
-  }
+  const { addressId, orderItems, paymentMethod } = createOrderSchema.parse(
+    req.body
+  );
+
+  // console.log(
+  //   `Creating order for addressId: ${addressId} with items:`,
+  //   orderItems
+  // );
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  // Verify address belongs to user
-  const address = await prisma.address.findUnique({
-    where: { id: parseInt(addressId) },
-  });
+  const order = await prisma.$transaction(async (tx) => {
+    const address = await tx.address.findFirst({
+      where: { id: addressId, userId: req.user!.id },
+    });
 
-  if (!address || address.userId !== req.user.id) {
-    throw new ApiError(404, "Address not found or doesn't belong to user");
-  }
+    if (!address)
+      throw new ApiError(404, "Address not found or doesn't belong to user");
 
-  // Fetch cart items
-  const cartItems = await prisma.cartItem.findMany({
-    where: { userId: req.user.id },
-    include: { productPrice: true },
-  });
-
-  if (!cartItems || cartItems.length === 0) {
-    throw new ApiError(400, "Cart is empty");
-  }
-
-  // Calculate totals
-  let totalAmount = 0;
-  let totalProducts = 0;
-
-  for (const item of cartItems) {
-    if (item.productPrice) {
-      const itemPrice = item.productPrice.price - item.productPrice.discount;
-      totalAmount += itemPrice * item.quantity;
-    }
-    totalProducts += item.quantity;
-  }
-
-  // Create order with order items
-  const order = await prisma.order.create({
-    data: {
-      userId: req.user.id,
-      addressId: parseInt(addressId),
-      paymentMethod,
-      totalAmount,
-      totalProducts,
-      orderItems: {
-        create: cartItems.map((item: any) => ({
-          shopProductId: item.shopProductId,
-          productPriceId: item.productPriceId,
-          quantity: item.quantity,
-        })),
+    const product = await tx.shopProduct.findMany({
+      where: {
+        id: { in: orderItems.map((i) => Number(i.productId)) },
+        isActive: true,
       },
-    },
-    include: {
-      orderItems: {
-        include: {
-          productPrice: true,
-          shopProduct: true,
+      include: {
+        prices: {
+          where: { id: { in: orderItems.map((i) => Number(i.priceId)) } },
         },
       },
-      address: true,
-    },
-  });
+    });
 
-  // Clear cart after successful order creation
-  await prisma.cartItem.deleteMany({
-    where: { userId: req.user.id },
+    if (product.length === 0)
+      throw new ApiError(400, "No valid products found for the order items");
+
+    let totalAmount = 0;
+
+    const items = await product.map((p) => {
+      const amount = p.prices[0].price;
+      const quantity = orderItems.find(
+        (item) =>
+          Number(item.productId) === p.id &&
+          Number(item.priceId) === p.prices[0].id
+      )!.quantity;
+
+      totalAmount += amount * quantity;
+
+      return {
+        productId: p.id,
+        priceId: p.prices[0].id,
+        quantity: quantity,
+        price: p.prices[0].price,
+        weight: p.prices[0].weight,
+        unit: p.prices[0].unit,
+      };
+    });
+
+    console.log("Total Items Amount:", totalAmount, "Items:", items);
+    return await tx.order.create({
+      data: {
+        userId: req.user!.id,
+        addressId: address.id,
+        paymentMethod: paymentMethod,
+        totalAmount,
+        totalProducts: items.length,
+        orderItems: { createMany: { data: items } },
+      },
+    });
   });
 
   return res
@@ -397,8 +432,8 @@ const getOrder = asyncHandler(async (req, res) => {
     include: {
       orderItems: {
         include: {
-          productPrice: true,
-          shopProduct: true,
+          // productPrice: true,
+          // shopProduct: true,
         },
       },
       address: true,
@@ -446,8 +481,8 @@ const getOrders = asyncHandler(async (req, res) => {
     include: {
       orderItems: {
         include: {
-          productPrice: true,
-          shopProduct: true,
+          // productPrice: true,
+          // shopProduct: true,
         },
       },
       address: true,
@@ -585,8 +620,8 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
     include: {
       orderItems: {
         include: {
-          productPrice: true,
-          shopProduct: true,
+          // productPrice: true,
+          // shopProduct: true,
         },
       },
     },
@@ -598,7 +633,8 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
 });
 
 export {
-  getProjucts,
+  getProducts,
+  getProductById,
   addToCart,
   getCart,
   updateCartItem,
