@@ -21,7 +21,6 @@ const createShop = asyncHandler(async (req, res) => {
 
   const payload = shopRegistrationSchema.parse(req.body);
 
-  // Create shopkeeper, bank details and documents in a single transaction to minimize DB calls
   const created = await prisma.$transaction(async (tx) => {
     // Check existing profile inside the transaction to avoid race conditions
     const existing = await tx.shopkeeper.findUnique({
@@ -30,27 +29,13 @@ const createShop = asyncHandler(async (req, res) => {
     if (existing)
       throw new ApiError(400, "Shop profile already exists for this user");
 
-    // Create bank details
-    const createBankDetail = await tx.bankDetail.create({
-      data: {
-        accountHolderName: payload.bankDetail.accountHolderName,
-        accountNumber: payload.bankDetail.accountNumber,
-        ifscCode: payload.bankDetail.ifscCode,
-        bankName: payload.bankDetail.bankName,
-        branchName: payload.bankDetail.branchName,
-        bankPassbookImage: payload.bankDetail.bankPassbookImage || null,
-      },
-    });
-    if (!createBankDetail)
-      throw new ApiError(500, "Failed to create bank details");
-
     // Create documents
     const createDocument = await tx.shopkeeperDocument.create({
       data: {
-        aadharImage: payload.document.aadharImage,
-        electricityBillImage: payload.document.electricityBillImage,
-        businessCertificateImage: payload.document.businessCertificateImage,
-        panImage: payload.document.panImage || null,
+        aadharImage: payload.documents.aadharImage,
+        electricityBillImage: payload.documents.electricityBillImage,
+        businessCertificateImage: payload.documents.businessCertificateImage,
+        panImage: payload.documents.panImage || null,
       },
     });
     if (!createDocument)
@@ -65,21 +50,7 @@ const createShop = asyncHandler(async (req, res) => {
         shopImage: payload.shopImages,
         fssaiNumber: payload.fssaiNumber || null,
         gstNumber: payload.gstNumber || null,
-        bankDetailId: createBankDetail.id,
         documentId: createDocument.id,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            role: true,
-          },
-        },
-        bankDetail: { select: { id: true } },
-        document: { select: { id: true } },
       },
     });
 
@@ -246,6 +217,28 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
   );
 });
 
+const getShopCategories = asyncHandler(async (req, res) => {
+  // Fetch distinct shop categories from shopkeeper profiles
+  const categories = await prisma.productCategory.findMany({
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  // const categoryList = categories.map((cat) => ({
+  //   id: cat.id,
+  //   name: cat.name,
+  // }));
+  console.log("Fetched shop categories:", categories);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Shop categories fetched successfully", categories)
+    );
+});
+
 const addShopProduct = asyncHandler(async (req, res) => {
   // write steps to add a new product to shop
   // 1. Validate request body using shopProductSchema
@@ -254,17 +247,27 @@ const addShopProduct = asyncHandler(async (req, res) => {
 
   const payload = shopProductSchema.parse(req.body);
 
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
   const product = await prisma.$transaction(async (tx) => {
     const shopkeeper = await tx.shopkeeper.findUnique({
-      where: { userId: req.user!.id },
+      where: { userId: Number(req.user?.id) },
       select: { id: true },
     });
+
     if (!shopkeeper)
       throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
+
+    const category = await tx.productCategory.findUnique({
+      where: { id: payload.productCategoryId },
+      select: { id: true },
+    });
+    if (!category) throw new ApiError(404, "Product category not found");
+
     const newProduct = await tx.shopProduct.create({
       data: {
         shopkeeperId: shopkeeper.id,
-        productCategoryId: payload.productCategoryId,
+        productCategoryId: category.id,
         isGlobalProduct: false,
         name: payload.name,
         brand: payload.brand,
@@ -273,6 +276,7 @@ const addShopProduct = asyncHandler(async (req, res) => {
         prices: { createMany: { data: payload.pricing } },
       },
     });
+    console.log("Newly added shop product:", newProduct);
     if (!newProduct) throw new ApiError(500, "Failed to add product");
 
     return newProduct;
@@ -578,6 +582,7 @@ const sendInviteToDeliveryPartner = asyncHandler(async (req, res) => {
 export {
   createShop,
   updateShop,
+  getShopCategories,
   getShopProducts,
   getGlobalProducts,
   addShopGlobalProduct,

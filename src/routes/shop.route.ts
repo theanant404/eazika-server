@@ -9,6 +9,7 @@ router.post("/create-shop", authMiddleware, shop.createShop); // POST /api/v2/sh
 router.put("/update-shop", isShopkeeper, shop.updateShop); // PUT /api/v2/shops/update-shop - Update shop details (name, category, images, FSSAI, GST)
 
 // ========== Product Management Routes ==========
+router.get("/product-categories", shop.getShopCategories);
 router.get("/products", isShopkeeper, shop.getShopProducts);
 router.get("/products/get-global", isShopkeeper, shop.getGlobalProducts);
 router.post("/products/add-shop-product", isShopkeeper, shop.addShopProduct);

@@ -145,7 +145,12 @@ const verifyLoginOtp = asyncHandler(async (req, res) => {
       new ApiResponse(200, "OTP verified successfully", {
         accessToken,
         refreshToken,
-        user: { id: user.id, phone: user.phone },
+        user: {
+          id: user.id,
+          phone: user.phone,
+          name: user.name,
+          role: user.role,
+        },
       })
     );
 });

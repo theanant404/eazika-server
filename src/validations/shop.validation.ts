@@ -11,7 +11,7 @@ export const shopRegistrationSchema = zod.object({
     "furniture",
     "clothing",
     "bakery",
-    // "homeAppliances",
+    "homeAppliances",
     "others",
   ]),
   shopImages: zod
@@ -19,7 +19,21 @@ export const shopRegistrationSchema = zod.object({
     .min(1, "At least one shop image is required"),
   fssaiNumber: zod.string().optional(),
   gstNumber: zod.string().optional(),
-  bankDetail: zod.object({
+
+  documents: zod.object({
+    aadharImage: zod.string().url("Aadhar image must be a valid URL"),
+    electricityBillImage: zod
+      .string()
+      .url("Electricity bill image must be a valid URL"),
+    businessCertificateImage: zod
+      .string()
+      .url("Business certificate image must be a valid URL"),
+    panImage: zod.string().url("PAN image must be a valid URL").optional(),
+  }),
+});
+
+/*
+bankDetail: zod.object({
     accountHolderName: zod
       .string()
       .min(2, "Account holder name must be at least 2 characters long")
@@ -44,14 +58,4 @@ export const shopRegistrationSchema = zod.object({
       .url("Bank passbook image must be a valid URL")
       .optional(),
   }),
-  document: zod.object({
-    aadharImage: zod.string().url("Aadhar image must be a valid URL"),
-    electricityBillImage: zod
-      .string()
-      .url("Electricity bill image must be a valid URL"),
-    businessCertificateImage: zod
-      .string()
-      .url("Business certificate image must be a valid URL"),
-    panImage: zod.string().url("PAN image must be a valid URL").optional(),
-  }),
-});
+*/
