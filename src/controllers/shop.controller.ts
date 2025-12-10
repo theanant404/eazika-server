@@ -1,7 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
-import { shopRegistrationSchema } from "../validations/shop.validation";
+import {
+  shopRegistrationSchema,
+  updateStockAndPriceSchema,
+} from "../validations/shop.validation";
 import {
   shopProductSchema,
   shopWithGlobalProductSchema,
@@ -143,40 +146,84 @@ const updateShop = asyncHandler(async (req, res) => {
 
 // ========== Product Management Controllers ==========
 const getShopProducts = asyncHandler(async (req, res) => {
-  // write steps to get all shop products for authenticated shopkeeper with pagination
-  // 1. Parse page and limit from query params, set defaults if not provided
-  // 2. Calculate offset for pagination
-  // 3. Fetch shop products from DB with limit and offset
-  // 4. Return products with pagination info
+  // write steps to get all products for the shop with pagination
+  // 1. Parse pagination params from query
+  // 2. Fetch products from DB with pagination
+  // 3. Return products with pagination info
 
-  const page = parseInt((req.query.page as string) || "1");
-  const limit = parseInt((req.query.limit as string) || "10");
-  const offset = (page - 1) * limit;
+  const pagination =
+    (req.query.pagination as {
+      currentPage: string;
+      itemsPerPage: string;
+    }) || {};
+  const currentPage = parseInt(pagination.currentPage || "1");
+  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const skip = (currentPage - 1) * itemsPerPage;
 
-  const [products, total] = await prisma.$transaction([
+  const [products, totalCount] = await prisma.$transaction([
     prisma.shopProduct.findMany({
-      where: { shopkeeperId: req.user!.id },
-      skip: offset,
-      take: limit,
+      where: { shopkeeper: { userId: req.user!.id } },
       include: {
-        productCategories: true,
-        prices: true,
+        prices: {
+          select: {
+            id: true,
+            price: true,
+            discount: true,
+            weight: true,
+            unit: true,
+            stock: true,
+          },
+        },
         globalProduct: true,
+        productCategories: true,
       },
+      skip,
+      take: itemsPerPage,
     }),
     prisma.shopProduct.count({
-      where: { shopkeeperId: req.user!.id },
+      where: { isActive: true },
     }),
   ]);
 
+  const filteredProducts = products.map((p) => {
+    const isGlobal = p.isGlobalProduct;
+    if (isGlobal) {
+      return {
+        id: p.id,
+        isGlobalProduct: p.isGlobalProduct,
+        category: p.productCategories.name,
+        globalProductId: p.globalProductId,
+        brand: p.globalProduct?.brand,
+        name: p.globalProduct?.name,
+        description: p.globalProduct?.description,
+        images: p.globalProduct?.images,
+        pricing: p.prices,
+        isActive: p.isActive,
+      };
+    } else {
+      return {
+        id: p.id,
+        isGlobalProduct: p.isGlobalProduct,
+        category: p.productCategories.name,
+        brand: p.brand,
+        name: p.name,
+        description: p.description,
+        images: p.images,
+        pricing: p.prices,
+        isActive: p.isActive,
+      };
+    }
+  });
+  console.log("Filtered shop products:", filteredProducts);
+
   return res.status(200).json(
-    new ApiResponse(200, "Shop products fetched successfully", {
-      products,
+    new ApiResponse(200, "Products fetched successfully", {
+      products: filteredProducts,
       pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        currentPage,
+        itemsPerPage,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
       },
     })
   );
@@ -184,34 +231,54 @@ const getShopProducts = asyncHandler(async (req, res) => {
 
 const getGlobalProducts = asyncHandler(async (req, res) => {
   // write steps to get all global products with pagination
-  // 1. Parse page and limit from query params, set defaults if not provided
-  // 2. Calculate offset for pagination
-  // 3. Fetch global products from DB with limit and offset
-  // 4. Return products with pagination info
+  // 1. Parse pagination params from query
+  // 2. Fetch global products from DB with pagination
+  // 3. Return products with pagination info
+  const pagination =
+    (req.query.pagination as {
+      currentPage: string;
+      itemsPerPage: string;
+    }) || {};
+  const currentPage = parseInt(pagination.currentPage || "1");
+  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const skip = (currentPage - 1) * itemsPerPage;
 
-  const page = parseInt((req.query.page as string) || "1");
-  const limit = parseInt((req.query.limit as string) || "10");
-  const offset = (page - 1) * limit;
-  const [products, total] = await prisma.$transaction([
+  const [globalProducts, totalCount] = await prisma.$transaction([
     prisma.globalProduct.findMany({
-      skip: offset,
-      take: limit,
       include: {
         productCategories: true,
-        prices: true,
+        prices: {
+          select: {
+            id: true,
+            price: true,
+            discount: true,
+          },
+        },
       },
+      skip,
+      take: itemsPerPage,
     }),
     prisma.globalProduct.count(),
   ]);
 
+  const formattedProducts = globalProducts.map((p) => ({
+    id: p.id,
+    category: p.productCategories.name,
+    brand: p.brand,
+    name: p.name,
+    description: p.description,
+    images: p.images,
+    pricing: p.prices,
+  }));
+
   return res.status(200).json(
     new ApiResponse(200, "Global products fetched successfully", {
-      products,
+      globalProducts: formattedProducts,
       pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        currentPage,
+        itemsPerPage,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
       },
     })
   );
@@ -338,6 +405,24 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Product added successfully", product));
 });
 
+const deleteShopProduct = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { productId } = req.params;
+
+  const product = await prisma.shopProduct.delete({
+    where: {
+      id: parseInt(productId),
+      shopkeeper: { userId: req.user.id },
+    },
+  });
+  if (!product) {
+    throw new ApiError(404, "Product not found or unauthorized");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Product deleted successfully", { product }));
+});
 /**
  * Update shop product details
  * Request params: productId
@@ -417,57 +502,39 @@ const updateShopProduct = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Product updated successfully", updatedProduct));
 });
 
-/**
- * Update product stock
- * Request params: productId
- * Request body: { stock }
- * - Sets the product stock to the exact number provided
- * - Only shopkeeper can update stock
- * - Stock cannot be negative
- */
-const updateShopProductStock = asyncHandler(async (req, res) => {
+const updateStockAndPrice = asyncHandler(async (req, res) => {
+  // write steps to update stock and price of a product
+  // 1. Validate request body using updateStockAndPriceSchema
+  // 2. Check if product belongs to shopkeeper
+  // 3. Update stock and price in DB
+  // 4. Return updated pricing info
+
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const { productId } = req.params;
-  const { stock } = req.body;
+  const { priceId } = req.params;
+  const payload = updateStockAndPriceSchema.parse(req.body);
 
-  if (!productId || stock === undefined) {
-    throw new ApiError(400, "productId and stock are required");
-  }
-
-  if (stock < 0) {
-    throw new ApiError(400, "Stock cannot be negative");
-  }
-
-  // Find shopkeeper
-  const shopkeeper = await prisma.shopkeeper.findUnique({
-    where: { userId: req.user.id },
+  const pricing = prisma.productPrice.update({
+    where: {
+      id: parseInt(priceId),
+      shopProduct: { shopkeeper: { userId: req.user.id } },
+    },
+    data: {
+      stock: payload.stock,
+      price: payload.price,
+      discount: payload.discount,
+      weight: payload.weight,
+      unit: payload.unit,
+    },
   });
 
-  if (!shopkeeper) {
-    throw new ApiError(404, "Shop profile not found");
+  if (!pricing) {
+    throw new ApiError(500, "Failed to update product stock and price");
   }
-
-  // Find product
-  const product = await prisma.shopProduct.findUnique({
-    where: { id: parseInt(productId) },
-  });
-
-  if (!product || product.shopkeeperId !== shopkeeper.id) {
-    throw new ApiError(404, "Product not found or unauthorized");
-  }
-
-  // Update product stock with new value
-  const updatedProduct = await prisma.shopProduct.update({
-    where: { id: product.id },
-    data: { stock },
-  });
 
   return res.status(200).json(
-    new ApiResponse(200, "Stock updated successfully", {
-      productId: updatedProduct.id,
-      previousStock: product.stock,
-      newStock: updatedProduct.stock,
+    new ApiResponse(200, "Product stock and price updated successfully", {
+      pricing,
     })
   );
 });
@@ -588,7 +655,8 @@ export {
   addShopGlobalProduct,
   addShopProduct,
   updateShopProduct,
-  updateShopProductStock,
+  updateStockAndPrice,
+  deleteShopProduct,
   getUserByPhone,
   sendInviteToDeliveryPartner,
 };

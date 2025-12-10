@@ -3,32 +3,27 @@ import * as shop from "../controllers/shop.controller.js";
 import { isShopkeeper, authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
+const product = Router();
 
 // ========= Shop Management Routes ==========
-router.post("/create-shop", authMiddleware, shop.createShop); // POST /api/v2/shops/create-shop - Create new shop (converts user to shopkeeper role)
-router.put("/update-shop", isShopkeeper, shop.updateShop); // PUT /api/v2/shops/update-shop - Update shop details (name, category, images, FSSAI, GST)
+router.post("/create-shop", authMiddleware, shop.createShop);
+router.put("/update-shop", isShopkeeper, shop.updateShop);
 
 // ========== Product Management Routes ==========
-router.get("/product-categories", shop.getShopCategories);
-router.get("/products", isShopkeeper, shop.getShopProducts);
-router.get("/products/get-global", isShopkeeper, shop.getGlobalProducts);
-router.post("/products/add-shop-product", isShopkeeper, shop.addShopProduct);
-router.post(
-  "/products/add-shop-global-product",
-  isShopkeeper,
-  shop.addShopGlobalProduct
+router.use("/products", isShopkeeper, product); // all product routes require shopkeeper authentication
+product.get("/get-all-categories", shop.getShopCategories);
+product.post("/add-shop-product", shop.addShopProduct);
+product.get("/get-all-product", shop.getShopProducts);
+product.get("/get-all-global-product", shop.getGlobalProducts);
+// product.post("/add-shop-global-product", shop.addShopGlobalProduct);
+product.put(
+  "/update-shop-product-stock-and-price/:priceId",
+  shop.updateStockAndPrice
 );
+product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);
+product.put("/update-shop-product/:productId", shop.updateShopProduct);
 
-router.put(
-  "/update-shop-product/:productId",
-  isShopkeeper,
-  shop.updateShopProduct
-);
-router.put(
-  "/update-shop-product-stock/:productId",
-  isShopkeeper,
-  shop.updateShopProductStock
-);
+// ========== Other Shop Routes ==========
 router.get("/get-user:phone", isShopkeeper, shop.getUserByPhone);
 router.patch(
   "/send-invite-to-delivery",

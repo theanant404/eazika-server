@@ -32,6 +32,21 @@ export const shopRegistrationSchema = zod.object({
   }),
 });
 
+export const updateStockAndPriceSchema = zod.object({
+  price: zod.number().positive("Price must be a positive number"),
+  discount: zod
+    .number()
+    .min(0, "Discount cannot be negative")
+    .max(100, "Discount cannot exceed 100%"),
+  weight: zod.number().positive("Weight must be a positive number"),
+  stock: zod
+    .number()
+    .int("Stock must be an integer")
+    .min(0, "Stock cannot be negative")
+    .optional(),
+  unit: zod.enum(["grams", "kg", "ml", "litre", "piece"]).default("grams"),
+});
+
 /*
 bankDetail: zod.object({
     accountHolderName: zod
