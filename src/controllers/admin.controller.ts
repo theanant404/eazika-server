@@ -1,19 +1,49 @@
 import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
-import redis from "@/config/redis.config";
 import {
   globalProductSchema,
   globalProductsSchema,
 } from "../validations/product.validation";
 
+/* ################ Dashboard Stats ################ */
+const getDashboardStats = asyncHandler(async (req, res) => {
+  const [totalUsers, totalShops, totalOrders, pendingShops] = await prisma.$transaction([
+    prisma.user.count(),
+    prisma.shopkeeper.count(),
+    prisma.order.count(),
+    prisma.shopkeeper.count({ where: { status: 'pending' } }) 
+  ]);
+
+  // Calculate Total Revenue (Sum of all delivered orders)
+  const revenueAgg = await prisma.order.aggregate({
+    _sum: {
+        totalAmount: true 
+    },
+    where: { status: 'delivered' }
+  });
+
+  res.status(200).json(new ApiResponse(200, "Stats fetched successfully", {
+    totalUsers,
+    totalShops,
+    totalOrders,
+    pendingShopApprovals: pendingShops,
+    totalSales: revenueAgg._sum.totalAmount || 0,
+    // Add mock trend data if you don't have historical data tables yet
+    revenueTrend: [
+        { name: 'Mon', value: 0 },
+        { name: 'Tue', value: 0 },
+        { name: 'Wed', value: 0 },
+        { name: 'Thu', value: 0 },
+        { name: 'Fri', value: 0 },
+        { name: 'Sat', value: 0 },
+        { name: 'Sun', value: 0 },
+    ]
+  }));
+});
+
 /* ################ Admin Users Controllers ################ */
 const getAllUsers = asyncHandler(async (req, res) => {
-  // write steps to get all users from the database with pagination
-  // 1. get page and limit from query params
-  // 2. fetch users from the database
-  // 3. return users with pagination info
-
   const page = parseInt((req.query.page as string) || "1");
   const limit = parseInt((req.query.limit as string) || "10");
   const skip = (page - 1) * limit;
@@ -22,11 +52,14 @@ const getAllUsers = asyncHandler(async (req, res) => {
     prisma.user.findMany({
       skip,
       take: limit,
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        phone: true,      
+        isActive: true,   
         createdAt: true,
       },
     }),
@@ -48,13 +81,49 @@ const getAllUsers = asyncHandler(async (req, res) => {
   );
 });
 
+/* ################ Shop Management ################ */
+const getAllShops = asyncHandler(async (req, res) => {
+  const status = req.query.status as string; // 'pending' | 'active' | 'rejected' | 'all'
+
+  const whereClause: any = {};
+  if (status && status !== 'all') {
+    whereClause.status = status; 
+  }
+
+  const shops = await prisma.shopkeeper.findMany({
+    where: whereClause,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: {
+        select: { name: true, email: true, phone: true }
+      }
+    }
+  });
+
+  res.status(200).json(new ApiResponse(200, "Shops fetched successfully", shops));
+});
+
+const verifyShop = asyncHandler(async (req, res) => {
+  const { shopId } = req.params;
+  const { status } = req.body; // 'active' or 'rejected'
+
+  if (!['active', 'rejected'].includes(status)) {
+    throw new ApiError(400, "Invalid status. Must be 'active' or 'rejected'");
+  }
+
+  const shop = await prisma.shopkeeper.update({
+    where: { id: Number(shopId) },
+    data: { 
+        status: status, 
+        isActive: status === 'active'
+    }
+  });
+
+  res.status(200).json(new ApiResponse(200, `Shop ${status} successfully`, shop));
+});
+
 /* ################ Products Controllers ################ */
 const createProductCategory = asyncHandler(async (req, res) => {
-  // write steps to add a product category to the database
-  // 1. validate request body
-  // 2. create product category in the database
-  // 3. return success response
-
   const { name, description } = req.body;
   if (!name || name.length < 2 || name.length > 100) {
     throw new ApiError(
@@ -63,10 +132,7 @@ const createProductCategory = asyncHandler(async (req, res) => {
     );
   }
   const createdCategory = await prisma.productCategory.create({
-    data: {
-      name,
-      description,
-    },
+    data: { name, description },
   });
   res.status(201).json(
     new ApiResponse(201, "Product category created successfully", {
@@ -76,10 +142,6 @@ const createProductCategory = asyncHandler(async (req, res) => {
 });
 
 const getAllProductCategories = asyncHandler(async (req, res) => {
-  // write steps to get all product categories from the database
-  // 1. fetch product categories from the database
-  // 2. return product categories
-
   res.status(200).json(
     new ApiResponse(200, "Product categories fetched successfully", {
       categories: await prisma.productCategory.findMany(),
@@ -88,11 +150,6 @@ const getAllProductCategories = asyncHandler(async (req, res) => {
 });
 
 const createGlobalProduct = asyncHandler(async (req, res) => {
-  // write steps to add a global product to the database
-  // 1. validate request body
-  // 2. create global product in the database
-  // 3. return success response
-
   const validatedData = globalProductSchema.parse(req.body);
 
   const createdProduct = await prisma.globalProduct.create({
@@ -113,15 +170,10 @@ const createGlobalProduct = asyncHandler(async (req, res) => {
 });
 
 const createGlobalProductsBulk = asyncHandler(async (req, res) => {
-  // write steps to add multiple global products to the database
-  // 1. validate request body
-  // 2. create global products in the database
-  // 3. return success response
-
   const validatedData = globalProductsSchema.parse(req.body.products);
 
   const createdProducts = await prisma.$transaction(
-    validatedData.map((product) =>
+    validatedData.map((product: { productCategoryId: any; name: any; brand: any; description: any; images: any; pricing: any; }) =>
       prisma.globalProduct.create({
         data: {
           productCategoryId: product.productCategoryId,
@@ -134,9 +186,6 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
       })
     )
   );
-  // const createdProducts = await prisma.globalProduct.createMany({
-  //   data: validatedData,
-  // });
 
   res.status(201).json(
     new ApiResponse(201, "Global products created successfully", {
@@ -146,7 +195,10 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
 });
 
 export {
+  getDashboardStats,
   getAllUsers,
+  getAllShops,
+  verifyShop,
   createProductCategory,
   getAllProductCategories,
   createGlobalProduct,
