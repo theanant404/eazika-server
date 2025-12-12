@@ -359,6 +359,7 @@ model OrderItem {
 model Order {
   id                    Int           @id @default(autoincrement())
   userId                Int           @map("user_id")
+  // shopkeeperId          Int           @map("shopkeeper_id")
   assignedDeliveryBoyId Int?          @map("assigned_delivery_boy_id")
   totalProducts         Int           @map("total_products")
   totalAmount           Float         @map("total_amount")
