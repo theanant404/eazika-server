@@ -5,6 +5,7 @@ import { authMiddleware } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 /* ----------- Product Browsing Routes ----------- */
+router.get("/cities", customer.getAvailableCities);
 router.get("/products", customer.getProducts);
 router.get("/products/:productId", customer.getProductById);
 
