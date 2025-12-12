@@ -18,10 +18,13 @@ const getProducts = asyncHandler(async (req, res) => {
   const skip = (currentPage - 1) * itemsPerPage;
 
   // 2. City Filtering (ADDED)
-  const city = req.query.city as string;
+  const rawCity = req.query.city as string;
+  const city = rawCity ? rawCity.trim() : undefined;
+  
   const whereClause: any = { isActive: true };
 
   if (city) {
+    console.log("Filtering by city:", city);
     whereClause.shopkeeper = {
       user: {
         address: {
@@ -29,12 +32,17 @@ const getProducts = asyncHandler(async (req, res) => {
             city: {
               equals: city,
               mode: 'insensitive' // Case-insensitive match
-            }
+            },
+            isDeleted: false
           }
         }
       }
     };
+  } else {
+    console.log("No city provided in query params");
   }
+
+  console.log("whereClause:", JSON.stringify(whereClause, null, 2));
 
   const [products, totalCount] = await prisma.$transaction([
     prisma.shopProduct.findMany({
@@ -49,7 +57,19 @@ const getProducts = asyncHandler(async (req, res) => {
             unit: true,
           },
         },
-        globalProduct: true,
+        globalProduct: {
+          include: {
+            prices: {
+              select: {
+                id: true,
+                price: true,
+                discount: true,
+                weight: true,
+                unit: true,
+              },
+            },
+          },
+        },
         productCategories: true,
         shopkeeper: true, // Included for verification if needed
       },
@@ -63,6 +83,14 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const filteredProducts = products.map((p) => {
     const isGlobal = p.isGlobalProduct;
+    // Use shop-specific prices if available, otherwise fallback to global product prices
+    const prices =
+      p.prices && p.prices.length > 0
+        ? p.prices
+        : isGlobal && p.globalProduct?.prices
+        ? p.globalProduct.prices
+        : [];
+
     return {
       id: p.id,
       isGlobalProduct: p.isGlobalProduct,
@@ -71,7 +99,7 @@ const getProducts = asyncHandler(async (req, res) => {
       name: isGlobal ? p.globalProduct?.name : p.name,
       description: isGlobal ? p.globalProduct?.description : p.description,
       images: isGlobal ? p.globalProduct?.images : p.images,
-      prices: p.prices,
+      prices: prices,
     };
   });
 
@@ -94,6 +122,7 @@ const getProducts = asyncHandler(async (req, res) => {
 const getAvailableCities = asyncHandler(async (req, res) => {
   const locations = await prisma.address.findMany({
     where: {
+      isDeleted: false,
       user: {
         shopkeeper: {
           isActive: true
