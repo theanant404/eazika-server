@@ -6,6 +6,7 @@ import {
   shopProductSchema,
   shopWithGlobalProductSchema,
 } from "../validations/product.validation";
+import { Prisma } from "../generated/prisma/client";
 
 //  ========== Shop Management Controllers ==========
 const createShop = asyncHandler(async (req, res) => {
@@ -22,7 +23,7 @@ const createShop = asyncHandler(async (req, res) => {
   const payload = shopRegistrationSchema.parse(req.body);
 
   // Create shopkeeper, bank details and documents in a single transaction to minimize DB calls
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // Check existing profile inside the transaction to avoid race conditions
     const existing = await tx.shopkeeper.findUnique({
       where: { userId: req.user!.id },
@@ -254,7 +255,7 @@ const addShopProduct = asyncHandler(async (req, res) => {
 
   const payload = shopProductSchema.parse(req.body);
 
-  const product = await prisma.$transaction(async (tx) => {
+  const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const shopkeeper = await tx.shopkeeper.findUnique({
       where: { userId: req.user!.id },
       select: { id: true },
@@ -294,7 +295,7 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
 
   const payload = shopWithGlobalProductSchema.parse(req.body);
 
-  const product = await prisma.$transaction(async (tx) => {
+  const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const shopkeeper = await tx.shopkeeper.findUnique({
       where: { userId: req.user!.id },
       select: { id: true },

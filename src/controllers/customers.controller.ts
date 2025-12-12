@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
 import { createOrderSchema } from "../validations/product.validation";
+import { Prisma } from "../generated/prisma/client";
 
 /* ================================= Customer Products Controllers ============================ */
 
@@ -206,7 +207,7 @@ const addToCart = asyncHandler(async (req, res) => {
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const item = await prisma.$transaction(async (tx) => {
+  const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const product = await tx.shopProduct.findUnique({
       where: {
         id: productId,
@@ -350,7 +351,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const order = await prisma.$transaction(async (tx) => {
+  const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const address = await tx.address.findFirst({
       where: { id: addressId, userId: req.user!.id },
     });
@@ -375,23 +376,24 @@ const createOrder = asyncHandler(async (req, res) => {
 
     let totalAmount = 0;
 
-    const items = await product.map((p) => {
+    const items = product.map((p) => {
       const quantity = orderItems.find(
         (item) =>
           Number(item.productId) === p.id &&
           Number(item.priceId) === p.prices[0].id
       )!.quantity;
 
-      const amount = p.prices[0].price;
+      const priceDetails = p.prices[0];
+      const amount = priceDetails.price;
       totalAmount += amount * quantity;
 
       return {
-        shopProductId: p.id, // Mapped correctly to schema
-        productPriceId: p.prices[0].id, // Mapped correctly to schema
+        productId: p.id, 
+        priceId: priceDetails.id, 
         quantity: quantity,
-        // price/weight/unit are not stored in OrderItem schema based on your earlier schema file, 
-        // they are relational lookups. If you want snapshot, you need schema changes.
-        // For now, mapping to existing OrderItem fields:
+        price: priceDetails.price,
+        weight: priceDetails.weight,
+        unit: priceDetails.unit
       };
     });
 

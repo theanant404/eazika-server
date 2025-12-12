@@ -12,7 +12,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     prisma.user.count(),
     prisma.shopkeeper.count(),
     prisma.order.count(),
-    prisma.shopkeeper.count({ where: { status: 'pending' } }) 
+    prisma.shopkeeper.count({ where: { isActive: false } }) 
   ]);
 
   // Calculate Total Revenue (Sum of all delivered orders)
@@ -87,7 +87,11 @@ const getAllShops = asyncHandler(async (req, res) => {
 
   const whereClause: any = {};
   if (status && status !== 'all') {
-    whereClause.status = status; 
+    if (status === 'active') {
+        whereClause.isActive = true;
+    } else if (status === 'pending' || status === 'rejected') {
+        whereClause.isActive = false;
+    }
   }
 
   const shops = await prisma.shopkeeper.findMany({
@@ -114,7 +118,6 @@ const verifyShop = asyncHandler(async (req, res) => {
   const shop = await prisma.shopkeeper.update({
     where: { id: Number(shopId) },
     data: { 
-        status: status, 
         isActive: status === 'active'
     }
   });
@@ -173,7 +176,7 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
   const validatedData = globalProductsSchema.parse(req.body.products);
 
   const createdProducts = await prisma.$transaction(
-    validatedData.map((product: { productCategoryId: any; name: any; brand: any; description: any; images: any; pricing: any; }) =>
+    validatedData.map((product) =>
       prisma.globalProduct.create({
         data: {
           productCategoryId: product.productCategoryId,
