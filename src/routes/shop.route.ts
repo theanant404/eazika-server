@@ -3,13 +3,13 @@ import * as shop from "../controllers/shop.controller.js";
 import { isShopkeeper, authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
-const product = Router();
 
 // ========= Shop Management Routes ==========
 router.post("/create-shop", authMiddleware, shop.createShop);
 router.put("/update-shop", isShopkeeper, shop.updateShop);
 
 // ========== Product Management Routes ==========
+const product = Router();
 router.use("/products", isShopkeeper, product); // all product routes require shopkeeper authentication
 product.get("/get-all-categories", shop.getShopCategories);
 product.post("/add-shop-product", shop.addShopProduct);
@@ -24,11 +24,15 @@ product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);
 product.put("/update-shop-product/:productId", shop.updateShopProduct);
 
 // ========== Other Shop Routes ==========
-router.get("/get-user:phone", isShopkeeper, shop.getUserByPhone);
-router.patch(
-  "/send-invite-to-delivery",
-  isShopkeeper,
-  shop.sendInviteToDeliveryPartner
-);
+const order = Router();
+router.use("/orders", isShopkeeper, order);
+order.get("/get-current-orders", shop.getCurrentOrders);
+order.get("/order/:orderId", shop.getOrderById);
+order.put("/order/status/:orderId", shop.updateOrderStatus);
+
+// order.get("/get-order-history", shop.getOrderHistory);
+
+order.get("/get-user:phone", shop.getUserByPhone);
+router.patch("/send-invite-to-delivery", shop.sendInviteToDeliveryPartner);
 
 export default router;

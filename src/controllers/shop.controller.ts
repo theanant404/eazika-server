@@ -539,12 +539,161 @@ const updateStockAndPrice = asyncHandler(async (req, res) => {
   );
 });
 
-/**
- * Get user by phone number
- * Query params: phone
- * - Find user by phone for delivery partner invitations
- * - Return basic user info
- */
+// ================================ Other Shop Controllers =============================
+
+const getCurrentOrders = asyncHandler(async (req, res) => {
+  // write steps to get current orders for the shop
+  // 1. Parse pagination params from query
+  // 2. Fetch orders from DB with pagination
+  // 3. Return orders with pagination info
+
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const pagination =
+    (req.query.pagination as {
+      currentPage: string;
+      itemsPerPage: string;
+    }) || {};
+  const currentPage = parseInt(pagination.currentPage || "1");
+  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const skip = (currentPage - 1) * itemsPerPage;
+
+  const allOrders = await prisma.order.findMany({
+    where: {
+      orderItems: {
+        some: { product: { shopkeeper: { userId: req.user.id } } },
+      },
+      status: { in: ["pending", "confirmed", "shipped"] },
+    },
+    include: {
+      orderItems: true,
+      user: { select: { id: true, name: true, phone: true } },
+      address: true,
+    },
+    skip,
+    take: itemsPerPage,
+    orderBy: { createdAt: "desc" },
+  });
+
+  const formattedOrders = allOrders.map((o) => {
+    return {
+      id: o.id,
+      customerName: o.user.name,
+      createdAt: o.createdAt,
+      address: `${o.address.line1}, ${o.address.city}, ${o.address.state}, ${o.address.pinCode}`,
+      itemCount: o.orderItems.length,
+      paymentMethod: o.paymentMethod,
+      status: o.status,
+      totalAmount: o.totalAmount,
+    };
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Current orders fetched successfully", {
+      orders: formattedOrders,
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems: formattedOrders.length,
+        totalPages: Math.ceil(formattedOrders.length / itemsPerPage),
+      },
+    })
+  );
+});
+
+const getOrderById = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { orderId } = req.params;
+
+  if (!orderId) {
+    throw new ApiError(400, "orderId is required");
+  }
+
+  // Find order
+  const order = await prisma.order.findUnique({
+    where: {
+      id: parseInt(orderId),
+      orderItems: {
+        some: { product: { shopkeeper: { userId: req.user.id } } },
+      },
+    },
+
+    include: {
+      address: true,
+      deliveryBoy: {
+        include: { user: { select: { id: true, name: true, phone: true } } },
+      },
+      orderItems: {
+        include: {
+          product: {
+            include: {
+              globalProduct: true,
+              productCategories: true,
+              shopkeeper: {
+                include: {
+                  deliveryBoys: {
+                    include: {
+                      user: { select: { id: true, name: true, phone: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!order) {
+    throw new ApiError(404, "Order not found");
+  }
+  const orderItems = {
+    id: order.id,
+    customerName: order.address.name,
+    customerPhone: order.address.phone,
+    address: `${order.address.line1}, ${order.address.city}, ${order.address.state}, ${order.address.pinCode}`,
+    status: order.status,
+    totalAmount: order.totalAmount,
+    itemCount: order.orderItems.length,
+    paymentMethod: order.paymentMethod,
+    createdAt: order.createdAt,
+    orderItems: order.orderItems.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      image: item.product.isGlobalProduct
+        ? item.product.globalProduct?.images[0]
+        : item.product.images[0],
+      name: item.product.isGlobalProduct
+        ? item.product.globalProduct?.name
+        : item.product.name,
+      price: item.price,
+      weight: item.weight,
+      unit: item.unit,
+    })),
+    driver: order.deliveryBoy && {
+      id: order.deliveryBoy.user.id,
+      name: order.deliveryBoy.user.name,
+      phone: order.deliveryBoy.user.phone,
+    },
+    driverList:
+      order.orderItems.length > 0
+        ? order.orderItems[0].product.shopkeeper.deliveryBoys.map((db) => ({
+            id: db.user.id,
+            name: db.user.name,
+            phone: db.user.phone,
+          }))
+        : [],
+  };
+
+  return res.status(200).json(
+    new ApiResponse(200, "Order fetched successfully", {
+      order: orderItems,
+    })
+  );
+});
+
 const getUserByPhone = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -573,6 +722,68 @@ const getUserByPhone = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "User fetched successfully", user));
+});
+const updateOrderStatus = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { orderId } = req.params;
+  const { status, rider } = req.body;
+
+  if (!orderId) {
+    throw new ApiError(400, "orderId is required");
+  }
+
+  if (!["shipped", "confirmed"].includes(status)) {
+    throw new ApiError(400, "status is required");
+  }
+
+  let order = null;
+
+  if (rider && status === "shipped") {
+    order = await prisma.$transaction(async (tx) => {
+      const deliveryBoy = await tx.deliveryBoy.findFirst({
+        where: {
+          userId: rider,
+          shopkeeper: { userId: req.user?.id },
+        },
+      });
+      if (!deliveryBoy) {
+        throw new ApiError(404, "Delivery partner not found for this shop");
+      }
+
+      return await tx.order.update({
+        where: {
+          id: parseInt(orderId),
+          orderItems: {
+            some: { product: { shopkeeper: { userId: req.user?.id } } },
+          },
+        },
+        data: {
+          status,
+          assignedDeliveryBoyId: deliveryBoy.id,
+          // deliveryBoy: { connect: { id: deliveryBoy.id } },
+        },
+      });
+    });
+  } else if (status === "confirmed") {
+    order = await prisma.order.update({
+      where: {
+        id: parseInt(orderId),
+        orderItems: {
+          some: { product: { shopkeeper: { userId: req.user.id } } },
+        },
+      },
+      data: { status },
+    });
+  }
+
+  if (!order) {
+    throw new ApiError(404, "Order not found or unauthorized");
+  }
+
+  return res.json(
+    new ApiResponse(200, "Order status updated successfully", { order })
+  );
 });
 
 /**
@@ -657,6 +868,10 @@ export {
   updateShopProduct,
   updateStockAndPrice,
   deleteShopProduct,
+  getCurrentOrders,
+  getOrderById,
+  // getOrderHistory,
+  updateOrderStatus,
   getUserByPhone,
   sendInviteToDeliveryPartner,
 };
