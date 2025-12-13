@@ -39,4 +39,6 @@ router.get("/get-shop-orders", isShopkeeper, shop.getShopOrders);
 router.post("/assign-order", isShopkeeper, shop.assignDeliveryPartner);
 router.patch("/update-order-status", isShopkeeper, shop.updateOrderStatus);
 
+router.get("/analytics", isShopkeeper, shop.getShopAnalytics);
+
 export default router;

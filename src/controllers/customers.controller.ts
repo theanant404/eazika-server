@@ -570,6 +570,8 @@ const trackOrder = asyncHandler(async (req, res) => {
           name: order.deliveryBoy.user.name,
           phone: order.deliveryBoy.user.phone,
           vehicleNo: order.deliveryBoy.vehicleNo,
+          currentLat: order.deliveryBoy.currentLat,
+          currentLng: order.deliveryBoy.currentLng,
         }
       : null,
   };

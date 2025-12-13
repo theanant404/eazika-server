@@ -8,20 +8,42 @@ import {
 
 /* ################ Dashboard Stats ################ */
 const getDashboardStats = asyncHandler(async (req, res) => {
-  const [totalUsers, totalShops, totalOrders, pendingShops] = await prisma.$transaction([
+  const [totalUsers, totalShops, totalOrders, pendingShops, totalRiders, activeRiders] = await prisma.$transaction([
     prisma.user.count(),
     prisma.shopkeeper.count(),
     prisma.order.count(),
-    prisma.shopkeeper.count({ where: { isActive: false } }) 
+    prisma.shopkeeper.count({ where: { isActive: false } }),
+    prisma.deliveryBoy.count(),
+    prisma.deliveryBoy.count({ where: { isAvailable: true } })
   ]);
 
-  // Calculate Total Revenue (Sum of all delivered orders)
+  // Total Revenue
   const revenueAgg = await prisma.order.aggregate({
-    _sum: {
-        totalAmount: true 
-    },
+    _sum: { totalAmount: true },
     where: { status: 'delivered' }
   });
+
+  // Top Cities by Orders (Approximate via Address GroupBy linked to Shopkeeper? No, Orders link to Address)
+  // Since we can't do deep relation group by easily in Prisma without raw query, we will fetch top cities from Addresses used in orders.
+  // Alternative: Group addresses by city and count. This counts *users* in cities or *orders*?
+  // User wants "Cities analytics". Let's show "Orders per City".
+  // We use $queryRaw for this aggregation.
+  
+  const cityStats: any[] = await prisma.$queryRaw`
+    SELECT "a"."city", COUNT("o"."id") as "orderCount"
+    FROM "orders" "o"
+    JOIN "addresses" "a" ON "o"."addressId" = "a"."id"
+    GROUP BY "a"."city"
+    ORDER BY "orderCount" DESC
+    LIMIT 5;
+  `;
+
+  // Serialize BigInt to Number for JSON response
+  const sanitizedCityStats = cityStats.map((stat: any) => ({
+      city: stat.city,
+      orderCount: Number(stat.orderCount)
+  }));
+
 
   res.status(200).json(new ApiResponse(200, "Stats fetched successfully", {
     totalUsers,
@@ -29,7 +51,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     totalOrders,
     pendingShopApprovals: pendingShops,
     totalSales: revenueAgg._sum.totalAmount || 0,
-    // Add mock trend data if you don't have historical data tables yet
+    riders: {
+        total: totalRiders,
+        active: activeRiders
+    },
+    topCities: sanitizedCityStats,
     revenueTrend: [
         { name: 'Mon', value: 0 },
         { name: 'Tue', value: 0 },

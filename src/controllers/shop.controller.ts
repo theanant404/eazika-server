@@ -576,6 +576,77 @@ const sendInviteToDeliveryPartner = asyncHandler(async (req, res) => {
   // );
 });
 
+/**
+ * Get Shop Analytics
+ * Query params: range (optional: '7d', '30d', 'all')
+ */
+const getShopAnalytics = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id }
+  });
+
+  if (!shopkeeper) throw new ApiError(404, "Shop not found");
+
+  const range = req.query.range as string || '7d';
+  
+  // Date Filter Logic
+  let dateFilter: any = {};
+  const today = new Date();
+  if (range === '7d') {
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    dateFilter = { createdAt: { gte: lastWeek } };
+  } else if (range === '30d') {
+    const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    dateFilter = { createdAt: { gte: lastMonth } };
+  }
+  
+  // Base Query for Shop Orders
+  const shopOrdersClause = {
+    orderItems: { some: { product: { shopkeeperId: shopkeeper.id } } },
+    ...dateFilter
+  };
+
+  // Aggregation
+  const [totalOrders, deliveredOrders, cancelledOrders, revenueAgg] = await prisma.$transaction([
+    prisma.order.count({ where: shopOrdersClause }),
+    prisma.order.count({ where: { ...shopOrdersClause, status: 'delivered' } }),
+    prisma.order.count({ where: { ...shopOrdersClause, status: 'cancelled' } }),
+    prisma.order.aggregate({
+      _sum: { totalAmount: true },
+      where: { ...shopOrdersClause, status: 'delivered' }
+    })
+  ]);
+
+  const activeOrders = totalOrders - deliveredOrders - cancelledOrders;
+  const customers = await prisma.order.findMany({
+      where: shopOrdersClause,
+      distinct: ['userId'],
+      select: { userId: true }
+  });
+
+  const analyticsData = {
+    metrics: {
+        revenue: (revenueAgg._sum.totalAmount || 0).toString(),
+        orders: totalOrders.toString(),
+        customers: customers.length.toString(),
+        aov: totalOrders > 0 ? (revenueAgg._sum.totalAmount || 0 / totalOrders).toFixed(2) : "0",
+    },
+    orderStats: { // Extra metadata for our internal use if needed
+        active: activeOrders,
+        delivered: deliveredOrders,
+        cancelled: cancelledOrders
+    },
+    // Mock charts for now to match interface
+    revenueChart: [], 
+    ordersChart: [], 
+    products: []
+  };
+
+  return res.status(200).json(new ApiResponse(200, "Analytics fetched", analyticsData));
+});
+
 export {
   createShop,
   updateShop,
@@ -587,9 +658,10 @@ export {
   updateShopProductStock,
   getUserByPhone,
   sendInviteToDeliveryPartner,
-  getShopOrders, // Exported
-  assignDeliveryPartner, // Exported
-  updateOrderStatus, // Exported
+  getShopOrders, 
+  assignDeliveryPartner,
+  updateOrderStatus,
+  getShopAnalytics, // Exported
 };
 
 // ========== Order Management Controllers ==========
@@ -630,6 +702,29 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         cancelBy: status === 'cancelled' ? 'shopkeeper' : undefined
     }
   });
+
+  if (updatedOrder.status === 'confirmed') {
+    // Check for auto-assignment
+    const availableRiders = await prisma.deliveryBoy.findMany({
+        where: {
+            shopkeeperId: shopkeeper.id,
+            isAvailable: true,
+        }
+    });
+
+    if (availableRiders.length === 1) {
+        const rider = availableRiders[0];
+        // Auto-assign
+        await prisma.order.update({
+            where: { id: orderId },
+            data: {
+                assignedDeliveryBoyId: rider.id,
+                status: 'shipped' // Automatically mark as shipped/assigned
+            }
+        });
+        // We could notify the user here that it was auto-assigned, but for now we just do it.
+    }
+  }
 
   return res.status(200).json(new ApiResponse(200, "Order status updated", updatedOrder));
 });
