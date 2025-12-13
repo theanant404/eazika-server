@@ -288,4 +288,86 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
   );
 });
 
-export { createDeliveryProfile, updateDeliveryProfile, getAssignedOrders };
+  export { 
+  createDeliveryProfile, 
+  updateDeliveryProfile, 
+  getAssignedOrders,
+  updateOrderStatus, // Exported
+  updateLocation // Exported
+};
+
+/**
+ * Update Order Status (Rider)
+ * Request body: { orderId, status }
+ * Status transitions: confirmed -> shipped -> delivered
+ */
+const updateOrderStatus = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { orderId, status } = req.body;
+
+  if (!['shipped', 'delivered', 'cancelled'].includes(status)) {
+    throw new ApiError(400, "Invalid status");
+  }
+
+  // Find delivery boy
+  const deliveryBoy = await prisma.deliveryBoy.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!deliveryBoy) throw new ApiError(404, "Delivery profile not found");
+
+  // Verify order is assigned to this rider
+  const order = await prisma.order.findUnique({
+    where: { id: orderId }
+  });
+
+  if (!order) throw new ApiError(404, "Order not found");
+  if (order.assignedDeliveryBoyId !== deliveryBoy.id) {
+    throw new ApiError(403, "Order not assigned to you");
+  }
+
+  // Update
+  const updateData: any = { status };
+  // If we had a deliveredAt field, we would set it here
+  // if (status === 'delivered') updateData.deliveredAt = new Date();
+
+  const updatedOrder = await prisma.order.update({
+    where: { id: orderId },
+    data: updateData
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Order status updated", updatedOrder)
+  );
+});
+
+/**
+ * Update Rider Location
+ * Request body: { lat, lng }
+ */
+const updateLocation = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { lat, lng } = req.body;
+
+  if (lat === undefined || lng === undefined) {
+    throw new ApiError(400, "lat and lng are required");
+  }
+
+  const deliveryBoy = await prisma.deliveryBoy.update({
+    where: { userId: req.user.id },
+    data: {
+      currentLat: lat,
+      currentLng: lng,
+      lastLocationUpdate: new Date()
+    }
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Location updated", { 
+       lat: deliveryBoy.currentLat, 
+       lng: deliveryBoy.currentLng 
+    })
+  );
+});

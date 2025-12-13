@@ -587,4 +587,201 @@ export {
   updateShopProductStock,
   getUserByPhone,
   sendInviteToDeliveryPartner,
+  getShopOrders, // Exported
+  assignDeliveryPartner, // Exported
+  updateOrderStatus, // Exported
 };
+
+// ========== Order Management Controllers ==========
+
+/**
+ * Update Order Status (Shopkeeper)
+ * Request body: { orderId, status }
+ * Used for Accepting/Rejecting orders
+ */
+const updateOrderStatus = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { orderId, status } = req.body;
+  if (!orderId || !status) throw new ApiError(400, "orderId and status required");
+
+  // Validate status
+  if (!['confirmed', 'cancelled', 'preparing', 'ready'].includes(status)) {
+     throw new ApiError(400, "Invalid status upgrade for shopkeeper");
+  }
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({where: {userId: req.user.id}});
+  if (!shopkeeper) throw new ApiError(404, "Shop not found");
+
+  // Check ownership
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      orderItems: { some: { product: { shopkeeperId: shopkeeper.id } } }
+    }
+  });
+
+  if (!order) throw new ApiError(404, "Order not found");
+
+  const updatedOrder = await prisma.order.update({
+    where: { id: orderId },
+    data: { 
+        status: status,
+        cancelBy: status === 'cancelled' ? 'shopkeeper' : undefined
+    }
+  });
+
+  return res.status(200).json(new ApiResponse(200, "Order status updated", updatedOrder));
+});
+
+/**
+ * Get orders for shopkeeper
+
+/**
+ * Get orders for shopkeeper
+ * Query params: status, page, limit
+ * 1. Find shopkeeper
+ * 2. Find orders containing products from this shopkeeper
+ * 3. Return orders
+ */
+const getShopOrders = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "10");
+  const status = req.query.status as string; // Optional: pending, confirmed, shipped, delivered, cancelled
+  const skip = (page - 1) * limit;
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Shop profile not found");
+  }
+
+  // Find orders that have items belonging to this shop
+  // Note: This approach assumes we want to show the whole order if it contains ANY item from the shop.
+  // Ideally, orders should be split or filtered, but for MVP we show the order.
+  const whereClause: any = {
+    orderItems: {
+      some: {
+        product: {
+          shopkeeperId: shopkeeper.id,
+        },
+      },
+    },
+  };
+
+  if (status) {
+    whereClause.status = status;
+  }
+
+  const [orders, total] = await prisma.$transaction([
+    prisma.order.findMany({
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { id: true, name: true, phone: true },
+        },
+        address: true,
+        orderItems: {
+          include: {
+            product: true, // Include product to verify ownership on frontend if needed
+            priceDetails: true 
+          }
+        },
+        deliveryBoy: {
+          include: { user: { select: { name: true, phone: true } } }
+        }
+      },
+    }),
+    prisma.order.count({ where: whereClause }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Shop orders fetched successfully", {
+      orders,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
+});
+
+/**
+ * Assign rider to order
+ * Request body: { orderId, deliveryBoyId }
+ * 1. Verify order belongs (contains items) to shop
+ * 2. Verify delivery boy belongs to shop
+ * 3. Update order with assignedDeliveryBoyId
+ * 4. Update status to 'confirmed' or 'ready' if applicable
+ */
+const assignDeliveryPartner = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { orderId, deliveryBoyId } = req.body;
+
+  if (!orderId || !deliveryBoyId) {
+    throw new ApiError(400, "orderId and deliveryBoyId are required");
+  }
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!shopkeeper) throw new ApiError(404, "Shop not found");
+
+  // Verify Delivery Boy
+  const deliveryBoy = await prisma.deliveryBoy.findFirst({
+    where: {
+      id: deliveryBoyId,
+      shopkeeperId: shopkeeper.id,
+    },
+  });
+
+  if (!deliveryBoy) {
+    throw new ApiError(400, "Delivery boy not found or not assigned to your shop");
+  }
+
+  // Verify Order contains shop's products
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      orderItems: {
+        some: {
+          product: {
+            shopkeeperId: shopkeeper.id,
+          },
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new ApiError(404, "Order not found or doesn't belong to your shop");
+  }
+
+  // Assign
+  const updatedOrder = await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      assignedDeliveryBoyId: deliveryBoy.id,
+      status: "confirmed", // or 'shipped'? Usually 'confirmed' implies shop accepted it. 'shipped' when rider picks up.
+      // Let's set to confirmed for now, allowing rider to move it to shipped/delivered.
+    },
+    include: {
+      deliveryBoy: { include: { user: true } }
+    }
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Rider assigned successfully", updatedOrder)
+  );
+});

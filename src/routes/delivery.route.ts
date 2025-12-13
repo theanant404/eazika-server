@@ -60,4 +60,16 @@ router.get(
   delivery.getAssignedOrders
 ); // GET /api/v2/delivery/get-assigned-orders - Get all orders assigned to delivery partner (supports status filter)
 
+router.patch(
+  "/update-order-status",
+  auth.isDeliveryBoy,
+  delivery.updateOrderStatus
+); // PATCH /api/v2/delivery/update-order-status - Update order status (confirmed -> shipped -> delivered)
+
+router.patch(
+  "/update-location",
+  auth.isDeliveryBoy,
+  delivery.updateLocation
+); // PATCH /api/v2/delivery/update-location - Update rider location
+
 export default router;

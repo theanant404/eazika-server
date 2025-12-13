@@ -34,5 +34,9 @@ router.patch(
   isShopkeeper,
   shop.sendInviteToDeliveryPartner
 );
+// router.get("/get-shop-orders", isShopkeeper, shop.getShopOrders); -- Already added
+router.get("/get-shop-orders", isShopkeeper, shop.getShopOrders);
+router.post("/assign-order", isShopkeeper, shop.assignDeliveryPartner);
+router.patch("/update-order-status", isShopkeeper, shop.updateOrderStatus);
 
 export default router;

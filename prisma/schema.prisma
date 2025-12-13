@@ -169,6 +169,12 @@ model DeliveryBoy {
   vehicleName      String? @map("vehicle_name")
   vehicleNo        String  @unique @map("vehicle_no")
 
+  // Tracking Details
+  currentLat         Float?    @map("current_lat")
+  currentLng         Float?    @map("current_lng")
+  isAvailable        Boolean   @default(true) @map("is_available")
+  lastLocationUpdate DateTime? @map("last_location_update")
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
