@@ -176,23 +176,27 @@ const refreshToken = asyncHandler(async (req, res) => {
   // 4. return response
 
   const incoming = req.cookies.refreshToken || req.body.refreshToken;
-  if (!incoming) throw new ApiError(401, "Refresh token required");
-
+  // 2. verify token
   const payload = jwt.verifyToken(incoming);
   if (!payload) throw new ApiError(401, "Invalid refresh token");
 
+  // Fetch fresh user data to get updated role
+  const user = await prisma.user.findUnique({ where: { id: payload.id } });
+  if (!user) throw new ApiError(401, "User not found");
+
   const accessToken = jwt.signAccessToken({
-    id: payload.id,
-    role: payload.role,
+    id: user.id,
+    role: user.role,
   });
   const refreshToken = jwt.signRefreshToken({
-    id: payload.id,
-    role: payload.role,
+    id: user.id,
+    role: user.role,
   });
 
   return res
     .cookie("refreshToken", refreshToken, cookieOptions)
     .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("userRole", user.role, { path: "/", maxAge: cookieOptions.maxAge }) // Ensure cookie is updated
     .json(
       new ApiResponse(200, "Token refreshed successfully", {
         accessToken,
