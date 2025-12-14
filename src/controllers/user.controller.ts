@@ -66,8 +66,7 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
 
   return res
     .cookie("refreshToken", refreshToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .cookie("userRole", user.role)
+    .cookie("userRole", user.role, { path: "/", maxAge: cookieOptions.maxAge })
     .json(
       new ApiResponse(200, "OTP verified successfully", {
         accessToken,
@@ -211,6 +210,7 @@ const logout = asyncHandler(async (req, res) => {
   return res
     .clearCookie("refreshToken", cookieOptions)
     .clearCookie("accessToken", cookieOptions)
+    .clearCookie("userRole")
     .json(new ApiResponse(200, "Logged out successfully"));
 });
 

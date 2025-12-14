@@ -72,4 +72,22 @@ router.patch(
   delivery.updateLocation
 ); // PATCH /api/v2/delivery/update-location - Update rider location
 
+router.get(
+  "/shops/nearby",
+  auth.authMiddleware,
+  delivery.getNearbyShops
+); // GET /api/v2/delivery/shops/nearby - Get all shops for registration
+
+router.patch(
+  "/availability",
+  auth.isDeliveryBoy,
+  delivery.toggleAvailability
+); // PATCH /api/v2/delivery/availability - Toggle rider online/offline
+
+router.get(
+  "/profile",
+  auth.isDeliveryBoy,
+  delivery.getDeliveryProfile
+); // GET /api/v2/delivery/profile - Get delivery profile info
+
 export default router;

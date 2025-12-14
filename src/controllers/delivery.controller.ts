@@ -288,13 +288,49 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
   );
 });
 
-  export { 
-  createDeliveryProfile, 
-  updateDeliveryProfile, 
-  getAssignedOrders,
-  updateOrderStatus, // Exported
-  updateLocation // Exported
-};
+/**
+ * Get nearby shops for delivery partner registration
+ * Query params: lat, lng
+ * - Returns list of shops with basic details
+ * - For MVP, returns all shops. In future, implement geospatial query.
+ */
+const getNearbyShops = asyncHandler(async (req, res) => {
+  // const { lat, lng } = req.query; 
+
+  // Fetch all shopkeepers with their address
+  const shops = await prisma.shopkeeper.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      shopName: true,
+      shopImage: true,
+      user: {
+        select: {
+           address: {
+             where: { isDeleted: false },
+             take: 1
+           }
+        }
+      }
+    }
+  });
+
+  const formattedShops = shops.map(shop => {
+    const address = shop.user.address[0];
+    return {
+      id: shop.id,
+      name: shop.shopName,
+      image: shop.shopImage[0] || null,
+      address: address ? `${address.line1}, ${address.city}` : "Address not available",
+      distance: null // Calculate if needed
+    };
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Shops fetched successfully", formattedShops)
+  );
+});
+
 
 /**
  * Update Order Status (Rider)
@@ -329,9 +365,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
   // Update
   const updateData: any = { status };
-  // If we had a deliveredAt field, we would set it here
-  // if (status === 'delivered') updateData.deliveredAt = new Date();
-
+  
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: updateData
@@ -371,3 +405,58 @@ const updateLocation = asyncHandler(async (req, res) => {
     })
   );
 });
+
+/**
+ * Toggle Delivery Availability
+ * Request body: { isOnline }
+ */
+const toggleAvailability = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { isOnline } = req.body;
+
+  if (typeof isOnline !== 'boolean') {
+    throw new ApiError(400, "isOnline (boolean) is required");
+  }
+
+  const deliveryBoy = await prisma.deliveryBoy.update({
+    where: { userId: req.user.id },
+    data: { isAvailable: isOnline }
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Availability updated", { isAvailable: deliveryBoy.isAvailable })
+  );
+});
+
+/**
+ * Get Delivery Profile
+ */
+const getDeliveryProfile = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const deliveryBoy = await prisma.deliveryBoy.findUnique({
+    where: { userId: req.user.id },
+    include: {
+        user: { select: { name: true, phone: true } },
+        shopkeeper: { select: { shopName: true } }
+    }
+  });
+
+  if (!deliveryBoy) throw new ApiError(404, "Profile not found");
+
+  return res.status(200).json(
+    new ApiResponse(200, "Profile fetched", deliveryBoy)
+  );
+});
+
+export { 
+  createDeliveryProfile, 
+  updateDeliveryProfile, 
+  getAssignedOrders,
+  updateOrderStatus, 
+  updateLocation,
+  getNearbyShops,
+  toggleAvailability,
+  getDeliveryProfile
+};

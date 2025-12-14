@@ -631,7 +631,7 @@ const getShopAnalytics = asyncHandler(async (req, res) => {
         revenue: (revenueAgg._sum.totalAmount || 0).toString(),
         orders: totalOrders.toString(),
         customers: customers.length.toString(),
-        aov: totalOrders > 0 ? (revenueAgg._sum.totalAmount || 0 / totalOrders).toFixed(2) : "0",
+        aov: totalOrders > 0 ? ((revenueAgg._sum.totalAmount || 0) / totalOrders).toFixed(2) : "0",
     },
     orderStats: { // Extra metadata for our internal use if needed
         active: activeOrders,
@@ -647,22 +647,39 @@ const getShopAnalytics = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Analytics fetched", analyticsData));
 });
 
-export {
-  createShop,
-  updateShop,
-  getShopProducts,
-  getGlobalProducts,
-  addShopGlobalProduct,
-  addShopProduct,
-  updateShopProduct,
-  updateShopProductStock,
-  getUserByPhone,
-  sendInviteToDeliveryPartner,
-  getShopOrders, 
-  assignDeliveryPartner,
-  updateOrderStatus,
-  getShopAnalytics, // Exported
-};
+/**
+ * Delete shop product (Soft delete)
+ * Request params: productId
+ */
+const deleteShopProduct = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { productId } = req.params;
+  if (!productId) throw new ApiError(400, "productId is required");
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!shopkeeper) throw new ApiError(404, "Shop not found");
+
+  const product = await prisma.shopProduct.findUnique({
+    where: { id: parseInt(productId) },
+  });
+
+  if (!product || product.shopkeeperId !== shopkeeper.id) {
+    throw new ApiError(404, "Product not found or unauthorized");
+  }
+
+  await prisma.shopProduct.update({
+    where: { id: product.id },
+    data: { isActive: false },
+  });
+
+  return res.status(200).json(new ApiResponse(200, "Product deleted successfully"));
+});
+
+
 
 // ========== Order Management Controllers ==========
 
@@ -695,7 +712,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
   if (!order) throw new ApiError(404, "Order not found");
 
-  const updatedOrder = await prisma.order.update({
+  let finalOrder = await prisma.order.update({
     where: { id: orderId },
     data: { 
         status: status,
@@ -703,7 +720,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     }
   });
 
-  if (updatedOrder.status === 'confirmed') {
+  if (finalOrder.status === 'confirmed') {
     // Check for auto-assignment
     const availableRiders = await prisma.deliveryBoy.findMany({
         where: {
@@ -715,7 +732,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     if (availableRiders.length === 1) {
         const rider = availableRiders[0];
         // Auto-assign
-        await prisma.order.update({
+        finalOrder = await prisma.order.update({
             where: { id: orderId },
             data: {
                 assignedDeliveryBoyId: rider.id,
@@ -726,11 +743,8 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     }
   }
 
-  return res.status(200).json(new ApiResponse(200, "Order status updated", updatedOrder));
+  return res.status(200).json(new ApiResponse(200, "Order status updated", finalOrder));
 });
-
-/**
- * Get orders for shopkeeper
 
 /**
  * Get orders for shopkeeper
@@ -868,8 +882,7 @@ const assignDeliveryPartner = asyncHandler(async (req, res) => {
     where: { id: orderId },
     data: {
       assignedDeliveryBoyId: deliveryBoy.id,
-      status: "confirmed", // or 'shipped'? Usually 'confirmed' implies shop accepted it. 'shipped' when rider picks up.
-      // Let's set to confirmed for now, allowing rider to move it to shipped/delivered.
+      status: "shipped", // Updated to 'shipped' for consistency
     },
     include: {
       deliveryBoy: { include: { user: true } }
@@ -880,3 +893,21 @@ const assignDeliveryPartner = asyncHandler(async (req, res) => {
     new ApiResponse(200, "Rider assigned successfully", updatedOrder)
   );
 });
+
+export {
+  createShop,
+  updateShop,
+  getShopProducts,
+  getGlobalProducts,
+  addShopGlobalProduct,
+  addShopProduct,
+  updateShopProduct,
+  updateShopProductStock,
+  deleteShopProduct,
+  getUserByPhone,
+  sendInviteToDeliveryPartner,
+  getShopOrders,
+  assignDeliveryPartner,
+  updateOrderStatus,
+  getShopAnalytics,
+};

@@ -23,16 +23,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     where: { status: 'delivered' }
   });
 
-  // Top Cities by Orders (Approximate via Address GroupBy linked to Shopkeeper? No, Orders link to Address)
-  // Since we can't do deep relation group by easily in Prisma without raw query, we will fetch top cities from Addresses used in orders.
-  // Alternative: Group addresses by city and count. This counts *users* in cities or *orders*?
-  // User wants "Cities analytics". Let's show "Orders per City".
-  // We use $queryRaw for this aggregation.
-  
+  // Top Cities by Orders
   const cityStats: any[] = await prisma.$queryRaw`
     SELECT "a"."city", COUNT("o"."id") as "orderCount"
     FROM "orders" "o"
-    JOIN "addresses" "a" ON "o"."addressId" = "a"."id"
+    JOIN "addresses" "a" ON "o"."address_id" = "a"."id"
     GROUP BY "a"."city"
     ORDER BY "orderCount" DESC
     LIMIT 5;
@@ -45,6 +40,40 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   }));
 
 
+  // Revenue Trend (This Week)
+  const now = new Date();
+  const currentDay = now.getDay(); // 0 (Sun) - 6 (Sat)
+  const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Adjust to get Monday
+  const startOfWeek = new Date(now.setDate(diff));
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const weeklyOrders = await prisma.order.findMany({
+    where: {
+      createdAt: { gte: startOfWeek },
+      status: 'delivered'
+    },
+    select: {
+      createdAt: true,
+      totalAmount: true
+    }
+  });
+
+  const revenueMap: Record<string, number> = {
+    'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+  };
+
+  weeklyOrders.forEach(order => {
+    const dayName = order.createdAt.toLocaleDateString('en-US', { weekday: 'short' });
+    if (revenueMap[dayName] !== undefined) {
+      revenueMap[dayName] += order.totalAmount;
+    }
+  });
+
+  const revenueTrend = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({
+    name: day,
+    value: revenueMap[day]
+  }));
+
   res.status(200).json(new ApiResponse(200, "Stats fetched successfully", {
     totalUsers,
     totalShops,
@@ -56,15 +85,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         active: activeRiders
     },
     topCities: sanitizedCityStats,
-    revenueTrend: [
-        { name: 'Mon', value: 0 },
-        { name: 'Tue', value: 0 },
-        { name: 'Wed', value: 0 },
-        { name: 'Thu', value: 0 },
-        { name: 'Fri', value: 0 },
-        { name: 'Sat', value: 0 },
-        { name: 'Sun', value: 0 },
-    ]
+    revenueTrend
   }));
 });
 
@@ -130,7 +151,12 @@ const getAllShops = asyncHandler(async (req, res) => {
     }
   });
 
-  res.status(200).json(new ApiResponse(200, "Shops fetched successfully", shops));
+  const formattedShops = shops.map(shop => ({
+      ...shop,
+      status: shop.isActive ? 'active' : 'pending' // Simple mapping for now
+  }));
+
+  res.status(200).json(new ApiResponse(200, "Shops fetched successfully", formattedShops));
 });
 
 const verifyShop = asyncHandler(async (req, res) => {
@@ -151,6 +177,83 @@ const verifyShop = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, `Shop ${status} successfully`, shop));
 });
 
+/* ################ Riders Management ################ */
+const getAllRiders = asyncHandler(async (req, res) => {
+    const riders = await prisma.deliveryBoy.findMany({
+        include: {
+            user: { select: { name: true, phone: true, email: true } },
+            _count: {
+                select: { orders: { where: { status: 'delivered' } } }
+            }
+        }
+    });
+
+    const formattedRiders = riders.map(rider => ({
+        ...rider,
+        name: rider.user.name,
+        phone: rider.user.phone,
+        email: rider.user.email,
+        status: rider.isAvailable ? 'available' : 'busy',
+        totalDeliveries: rider._count.orders,
+        rating: 4.8 // Mock rating as it is not in schema yet
+    }));
+
+    res.status(200).json(new ApiResponse(200, "Riders fetched successfully", formattedRiders));
+});
+
+
+
+/* ################ Orders Management ################ */
+const getAllOrders = asyncHandler(async (req, res) => {
+    const orders = await prisma.order.findMany({
+        include: {
+            user: { select: { name: true } },
+            orderItems: { // Access shop via OrderItem -> ShopProduct -> Shopkeeper -> User (Shop Name)
+                include: {
+                    product: {
+                        include: {
+                            shopkeeper: {
+                                include: {
+                                    user: { select: { name: true } } // shop owner name
+                                }
+                            }
+                        }
+                    }
+                },
+
+            },
+            deliveryBoy: {
+                include: {
+                    user: { select: { name: true } }
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedOrders = orders.map(order => {
+        // Extract shop name from first item's product
+        const shopName = order.orderItems[0]?.product?.shopkeeper?.shopName || "Unknown Shop";
+        
+        return {
+            id: `#ORD-${order.id}`,
+            customer: order.user.name,
+            shop: shopName,
+            rider: order.deliveryBoy?.user.name || null,
+            amount: `₹${order.totalAmount}`,
+            status: order.status,
+            date: order.createdAt.toLocaleDateString(),
+            rawDate: order.createdAt,
+            items: order.orderItems.map(item => ({
+                name: item.product.name,
+                qty: item.quantity,
+                price: `₹${item.price}`
+            }))
+        };
+    });
+
+    res.status(200).json(new ApiResponse(200, "Orders fetched successfully", formattedOrders));
+});
 /* ################ Products Controllers ################ */
 const createProductCategory = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
@@ -228,8 +331,82 @@ export {
   getAllUsers,
   getAllShops,
   verifyShop,
+  getAllRiders,
+  getAllOrders,
   createProductCategory,
   getAllProductCategories,
   createGlobalProduct,
   createGlobalProductsBulk,
+  getLiveMapData,
 };
+
+/* ################ Live Map Data ################ */
+const getLiveMapData = asyncHandler(async (req, res) => {
+  const [shops, riders] = await prisma.$transaction([
+    prisma.shopkeeper.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        shopName: true,
+        shopCategory: true,
+        user: {
+            select: {
+                name: true,
+                phone: true,
+                address: {
+                    where: { isDeleted: false },
+                    take: 1 
+                }
+            }
+        }
+      }
+    }),
+    prisma.deliveryBoy.findMany({
+        select: {
+            id: true,
+            currentLat: true,
+            currentLng: true,
+            isAvailable: true,
+            user: { select: { name: true, phone: true } }
+        }
+    })
+  ]);
+
+  // Process Shops to extract Coordinates
+  const processedShops = shops.map(shop => {
+      // Parse geoLocation string "lat,lng" if available
+      let lat = 0, lng = 0;
+      const addr = shop.user.address[0];
+      if (addr && addr.geoLocation) {
+          const parts = addr.geoLocation.split(',');
+          if (parts.length === 2) {
+              lat = parseFloat(parts[0].trim());
+              lng = parseFloat(parts[1].trim());
+          }
+      }
+      return {
+          id: shop.id,
+          name: shop.shopName,
+          category: shop.shopCategory,
+          owner: shop.user.name,
+          phone: shop.user.phone,
+          lat,
+          lng,
+          status: 'active'
+      };
+  }).filter(s => s.lat !== 0 && s.lng !== 0); // Only return shops with valid location
+
+  const processedRiders = riders.map(rider => ({
+      id: rider.id,
+      name: rider.user.name,
+      phone: rider.user.phone,
+      lat: rider.currentLat || 0,
+      lng: rider.currentLng || 0,
+      status: rider.isAvailable ? 'available' : 'busy' // Simplified status
+  })).filter(r => r.lat !== 0 && r.lng !== 0);
+
+  res.status(200).json(new ApiResponse(200, "Live map data fetched", {
+      shops: processedShops,
+      riders: processedRiders
+  }));
+});

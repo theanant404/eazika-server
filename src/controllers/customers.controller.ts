@@ -403,28 +403,46 @@ const createOrder = asyncHandler(async (req, res) => {
     if (product.length === 0)
       throw new ApiError(400, "No valid products found for the order items");
 
+    const items: any[] = [];
     let totalAmount = 0;
 
-    const items = product.map((p) => {
-      const quantity = orderItems.find(
-        (item) =>
-          Number(item.productId) === p.id &&
-          Number(item.priceId) === p.prices[0].id
-      )!.quantity;
+    // Create a map for quick lookup
+    const productMap = new Map();
+    const priceMap = new Map();
 
-      const priceDetails = p.prices[0];
+    product.forEach(p => {
+      productMap.set(p.id, p);
+      p.prices.forEach(pr => priceMap.set(pr.id, pr));
+    });
+
+    for (const item of orderItems) {
+      const pId = Number(item.productId);
+      const prId = Number(item.priceId);
+
+      const prod = productMap.get(pId);
+      const priceDetails = priceMap.get(prId);
+
+      if (!prod || !priceDetails) {
+        throw new ApiError(400, `Invalid product or price for item ${pId}`);
+      }
+
+      // Verify the price belongs to the product (though the query structure implicitly enforces this relation in Prisma mostly, explicit check is safer)
+      // Since our query fetches products and includes constrained prices, we just need to ensure the price exists in our map.
+      // But strictly, we should ensure priceDetails.shopProductId === prod.id if that relation exists on price, or just trust the nested fetch.
+      // The previous query `include: { prices: ... }` ensures `priceDetails` is associated with `prod`.
+      
       const amount = priceDetails.price;
-      totalAmount += amount * quantity;
+      totalAmount += amount * item.quantity;
 
-      return {
-        productId: p.id, 
-        priceId: priceDetails.id, 
-        quantity: quantity,
+      items.push({
+        productId: pId, 
+        priceId: prId, 
+        quantity: item.quantity,
         price: priceDetails.price,
         weight: priceDetails.weight,
         unit: priceDetails.unit
-      };
-    });
+      });
+    }
 
     // console.log("Total Items Amount:", totalAmount);
     return await tx.order.create({

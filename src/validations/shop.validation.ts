@@ -11,7 +11,7 @@ export const shopRegistrationSchema = zod.object({
     "furniture",
     "clothing",
     "bakery",
-    // "homeAppliances",
+    "hmoeAppliances",
     "others",
   ]),
   shopImages: zod

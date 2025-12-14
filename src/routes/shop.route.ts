@@ -23,12 +23,17 @@ router.put(
   isShopkeeper,
   shop.updateShopProduct
 );
+router.delete(
+  "/delete-shop-product/:productId",
+  isShopkeeper,
+  shop.deleteShopProduct
+);
 router.put(
   "/update-shop-product-stock/:productId",
   isShopkeeper,
   shop.updateShopProductStock
 );
-router.get("/get-user:phone", isShopkeeper, shop.getUserByPhone);
+router.get("/get-user", isShopkeeper, shop.getUserByPhone);
 router.patch(
   "/send-invite-to-delivery",
   isShopkeeper,
