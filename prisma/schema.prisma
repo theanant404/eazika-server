@@ -25,7 +25,7 @@ enum ShopCategory {
   furniture
   clothing
   bakery
-  hmoeAppliances
+  homeAppliances
   others
 }
 
@@ -249,6 +249,7 @@ model GlobalProduct {
   description       String?
   images            String[]
   priceIds          Int[]    @map("product_pricing")
+  isActive          Boolean  @default(true) @map("is_active")
 
   // Timestamps
   createdAt DateTime @default(now())
