@@ -5,6 +5,7 @@ import { authMiddleware } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 /* ----------- Product Browsing Routes ----------- */
+router.get("/cities", customer.getAvailableCities);
 router.get("/products", customer.getProducts);
 router.get("/products/:productId", customer.getProductById);
 
@@ -55,7 +56,7 @@ router.delete("/clear-cart", authMiddleware, customer.clearCart); // DELETE /api
 router.post("/create-order", authMiddleware, customer.createOrder); // POST /api/v2/customers/create-order - Create new order from cart
 router.get("/get-order/:orderId", authMiddleware, customer.getOrder); // GET /api/v2/customers/get-order/:orderId - Get specific order details
 router.get("/get-orders", authMiddleware, customer.getOrders); // GET /api/v2/customers/get-orders - Get all orders for user (supports pagination & status filter)
-router.get("track-order/:orderId", authMiddleware, customer.trackOrder); // GET /api/v2/customers/track-order/:orderId - Track order status and delivery partner info (NOTE: Missing leading slash - potential bug)
+router.get("/track-order/:orderId", authMiddleware, customer.trackOrder); // GET /api/v2/customers/track-order/:orderId - Track order status and delivery partner info
 router.put(
   "/cancel-order-by-customer/:orderId",
   authMiddleware,

@@ -7,6 +7,7 @@ import { ApiResponse, ApiError } from "../utils/apiHandler";
 import env from "../config/env.config";
 import prisma from "../config/db.config";
 import { SubscriptionSchema } from "../validations/notification.valodation";
+import { Prisma } from "../generated/prisma/client";
 
 const { vapidPublicKey } = env;
 
@@ -17,7 +18,7 @@ const getVapidPublicKey = asyncHandler(async (_, res) => {
 const subscribePushNotification = asyncHandler(async (req, res) => {
   const subscription = SubscriptionSchema.parse(req.body.subscription);
 
-  const subscribe = await prisma.$transaction(async (tx) => {
+  const subscribe = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existingSubscription = await tx.pushNotification.findFirst({
       where: { endpoint: subscription.endpoint },
     });

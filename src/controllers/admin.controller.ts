@@ -8,20 +8,96 @@ import {
 
 /* ################ Dashboard Stats ################ */
 const getDashboardStats = asyncHandler(async (req, res) => {
-  const [totalUsers, totalShops, totalOrders, pendingShops] = await prisma.$transaction([
+  const [totalUsers, totalShops, totalOrders, pendingShops, totalRiders, activeRiders] = await prisma.$transaction([
     prisma.user.count(),
     prisma.shopkeeper.count(),
     prisma.order.count(),
-    prisma.shopkeeper.count({ where: { status: 'pending' } }) 
+    prisma.shopkeeper.count({ where: { isActive: false } }),
+    prisma.deliveryBoy.count(),
+    prisma.deliveryBoy.count({ where: { isAvailable: true } })
   ]);
 
-  // Calculate Total Revenue (Sum of all delivered orders)
+  // Total Revenue
   const revenueAgg = await prisma.order.aggregate({
-    _sum: {
-        totalAmount: true 
-    },
+    _sum: { totalAmount: true },
     where: { status: 'delivered' }
   });
+
+  // Top Cities by Orders
+  const cityStats: any[] = await prisma.$queryRaw`
+    SELECT "a"."city", COUNT("o"."id") as "orderCount"
+    FROM "orders" "o"
+    JOIN "addresses" "a" ON "o"."address_id" = "a"."id"
+    GROUP BY "a"."city"
+    ORDER BY "orderCount" DESC
+    LIMIT 5;
+  `;
+
+  // Serialize BigInt to Number for JSON response
+  const sanitizedCityStats = cityStats.map((stat: any) => ({
+      city: stat.city,
+      orderCount: Number(stat.orderCount)
+  }));
+
+
+  // Revenue & Order Trend (This Week)
+  const now = new Date();
+  const currentDay = now.getDay(); // 0 (Sun) - 6 (Sat)
+  const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Adjust to get Monday
+  const startOfWeek = new Date(now.setDate(diff));
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const weeklyOrders = await prisma.order.findMany({
+    where: {
+      createdAt: { gte: startOfWeek },
+    },
+    select: {
+      createdAt: true,
+      totalAmount: true,
+      status: true
+    }
+  });
+
+  const revenueMap: Record<string, number> = {
+    'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+  };
+  
+  const ordersMap: Record<string, number> = {
+    'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+  };
+
+  weeklyOrders.forEach(order => {
+    const dayName = order.createdAt.toLocaleDateString('en-US', { weekday: 'short' });
+    if (revenueMap[dayName] !== undefined && order.status === 'delivered') { // Only count revenue for delivered
+      revenueMap[dayName] += order.totalAmount;
+    }
+    if (ordersMap[dayName] !== undefined) {
+      ordersMap[dayName] += 1;
+    }
+  });
+
+  const revenueTrend = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({
+    name: day,
+    value: revenueMap[day]
+  }));
+
+  const ordersTrend = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({
+    name: day,
+    value: ordersMap[day]
+  }));
+
+  // Order Status Distribution
+  const orderStatusGroups = await prisma.order.groupBy({
+    by: ['status'],
+    _count: {
+      id: true
+    }
+  });
+
+  const orderStatusDistribution = orderStatusGroups.map(group => ({
+    name: group.status,
+    value: group._count.id
+  }));
 
   res.status(200).json(new ApiResponse(200, "Stats fetched successfully", {
     totalUsers,
@@ -29,16 +105,14 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     totalOrders,
     pendingShopApprovals: pendingShops,
     totalSales: revenueAgg._sum.totalAmount || 0,
-    // Add mock trend data if you don't have historical data tables yet
-    revenueTrend: [
-        { name: 'Mon', value: 0 },
-        { name: 'Tue', value: 0 },
-        { name: 'Wed', value: 0 },
-        { name: 'Thu', value: 0 },
-        { name: 'Fri', value: 0 },
-        { name: 'Sat', value: 0 },
-        { name: 'Sun', value: 0 },
-    ]
+    riders: {
+        total: totalRiders,
+        active: activeRiders
+    },
+    topCities: sanitizedCityStats,
+    revenueTrend,
+    ordersTrend,
+    orderStatusDistribution
   }));
 });
 
@@ -87,7 +161,11 @@ const getAllShops = asyncHandler(async (req, res) => {
 
   const whereClause: any = {};
   if (status && status !== 'all') {
-    whereClause.status = status; 
+    if (status === 'active') {
+        whereClause.isActive = true;
+    } else if (status === 'pending' || status === 'rejected') {
+        whereClause.isActive = false;
+    }
   }
 
   const shops = await prisma.shopkeeper.findMany({
@@ -100,7 +178,12 @@ const getAllShops = asyncHandler(async (req, res) => {
     }
   });
 
-  res.status(200).json(new ApiResponse(200, "Shops fetched successfully", shops));
+  const formattedShops = shops.map(shop => ({
+      ...shop,
+      status: shop.isActive ? 'active' : 'pending' // Simple mapping for now
+  }));
+
+  res.status(200).json(new ApiResponse(200, "Shops fetched successfully", formattedShops));
 });
 
 const verifyShop = asyncHandler(async (req, res) => {
@@ -114,7 +197,6 @@ const verifyShop = asyncHandler(async (req, res) => {
   const shop = await prisma.shopkeeper.update({
     where: { id: Number(shopId) },
     data: { 
-        status: status, 
         isActive: status === 'active'
     }
   });
@@ -122,6 +204,101 @@ const verifyShop = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, `Shop ${status} successfully`, shop));
 });
 
+const toggleShopStatus = asyncHandler(async (req, res) => {
+  const { shopId } = req.params;
+  const { isActive } = req.body;
+
+  if (typeof isActive !== "boolean") {
+    throw new ApiError(400, "isActive must be a boolean");
+  }
+
+  const shop = await prisma.shopkeeper.update({
+    where: { id: Number(shopId) },
+    data: { 
+        isActive: isActive
+    }
+  });
+
+  res.status(200).json(new ApiResponse(200, `Shop ${isActive ? 'activated' : 'deactivated'} successfully`, shop));
+});
+
+/* ################ Riders Management ################ */
+const getAllRiders = asyncHandler(async (req, res) => {
+    const riders = await prisma.deliveryBoy.findMany({
+        include: {
+            user: { select: { name: true, phone: true, email: true } },
+            _count: {
+                select: { orders: { where: { status: 'delivered' } } }
+            }
+        }
+    });
+
+    const formattedRiders = riders.map(rider => ({
+        ...rider,
+        name: rider.user.name,
+        phone: rider.user.phone,
+        email: rider.user.email,
+        status: rider.isAvailable ? 'available' : 'busy',
+        totalDeliveries: rider._count.orders,
+        rating: 4.8 // Mock rating as it is not in schema yet
+    }));
+
+    res.status(200).json(new ApiResponse(200, "Riders fetched successfully", formattedRiders));
+});
+
+
+
+/* ################ Orders Management ################ */
+const getAllOrders = asyncHandler(async (req, res) => {
+    const orders = await prisma.order.findMany({
+        include: {
+            user: { select: { name: true } },
+            orderItems: { // Access shop via OrderItem -> ShopProduct -> Shopkeeper -> User (Shop Name)
+                include: {
+                    product: {
+                        include: {
+                            shopkeeper: {
+                                include: {
+                                    user: { select: { name: true } } // shop owner name
+                                }
+                            }
+                        }
+                    }
+                },
+
+            },
+            deliveryBoy: {
+                include: {
+                    user: { select: { name: true } }
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedOrders = orders.map(order => {
+        // Extract shop name from first item's product
+        const shopName = order.orderItems[0]?.product?.shopkeeper?.shopName || "Unknown Shop";
+        
+        return {
+            id: `#ORD-${order.id}`,
+            customer: order.user.name,
+            shop: shopName,
+            rider: order.deliveryBoy?.user.name || null,
+            amount: `₹${order.totalAmount}`,
+            status: order.status,
+            date: order.createdAt.toLocaleDateString(),
+            rawDate: order.createdAt,
+            items: order.orderItems.map(item => ({
+                name: item.product.name,
+                qty: item.quantity,
+                price: `₹${item.price}`
+            }))
+        };
+    });
+
+    res.status(200).json(new ApiResponse(200, "Orders fetched successfully", formattedOrders));
+});
 /* ################ Products Controllers ################ */
 const createProductCategory = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
@@ -173,7 +350,7 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
   const validatedData = globalProductsSchema.parse(req.body.products);
 
   const createdProducts = await prisma.$transaction(
-    validatedData.map((product: { productCategoryId: any; name: any; brand: any; description: any; images: any; pricing: any; }) =>
+    validatedData.map((product) =>
       prisma.globalProduct.create({
         data: {
           productCategoryId: product.productCategoryId,
@@ -199,8 +376,260 @@ export {
   getAllUsers,
   getAllShops,
   verifyShop,
+  toggleShopStatus,
+  getAllRiders,
+  getAllOrders,
   createProductCategory,
   getAllProductCategories,
   createGlobalProduct,
   createGlobalProductsBulk,
+  getLiveMapData,
+  getAllGlobalProducts,
+  getAllShopProducts,
+  getGlobalProductById,
+  updateGlobalProduct,
+  toggleGlobalProductStatus,
+  toggleShopProductStatus,
 };
+
+/* ################ Product Management ################ */
+
+const getAllGlobalProducts = asyncHandler(async (req, res) => {
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "10");
+  const skip = (page - 1) * limit;
+  const search = (req.query.search as string) || "";
+
+  const whereClause: any = {};
+  if (search) {
+    whereClause.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { brand: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [products, total] = await prisma.$transaction([
+    prisma.globalProduct.findMany({
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        productCategories: true,
+        prices: true,
+      },
+    }),
+    prisma.globalProduct.count({ where: whereClause }),
+  ]);
+
+  res.status(200).json(
+    new ApiResponse(200, "Global products fetched successfully", {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
+});
+
+const getAllShopProducts = asyncHandler(async (req, res) => {
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "10");
+  const skip = (page - 1) * limit;
+  const search = (req.query.search as string) || "";
+
+  const whereClause: any = {};
+  if (search) {
+    whereClause.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { brand: { contains: search, mode: "insensitive" } },
+      { shopkeeper: { shopName: { contains: search, mode: "insensitive" } } },
+    ];
+  }
+
+  const [products, total] = await prisma.$transaction([
+    prisma.shopProduct.findMany({
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        shopkeeper: {
+          select: {
+            shopName: true,
+            user: { select: { name: true, phone: true } },
+          },
+        },
+        productCategories: true,
+        prices: true,
+      },
+    }),
+    prisma.shopProduct.count({ where: whereClause }),
+  ]);
+
+  res.status(200).json(
+    new ApiResponse(200, "Shop products fetched successfully", {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  );
+});
+
+const getGlobalProductById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const product = await prisma.globalProduct.findUnique({
+    where: { id: Number(id) },
+    include: {
+      productCategories: true,
+      prices: true,
+    },
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Global product not found");
+  }
+
+  res.status(200).json(new ApiResponse(200, "Product fetched successfully", product));
+});
+
+const updateGlobalProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, brand, description, images, productCategoryId, isActive } = req.body;
+
+  const product = await prisma.globalProduct.update({
+    where: { id: Number(id) },
+    data: {
+      name,
+      brand,
+      description,
+      images,
+      productCategoryId,
+      isActive,
+    },
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Global product updated successfully", product));
+});
+
+const toggleGlobalProductStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+
+  if (typeof isActive !== "boolean") {
+    throw new ApiError(400, "isActive must be a boolean");
+  }
+
+  const product = await prisma.globalProduct.update({
+    where: { id: Number(id) },
+    data: { isActive },
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      `Global product ${isActive ? "activated" : "deactivated"} successfully`,
+      product
+    )
+  );
+});
+
+const toggleShopProductStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+
+  if (typeof isActive !== "boolean") {
+    throw new ApiError(400, "isActive must be a boolean");
+  }
+
+  const product = await prisma.shopProduct.update({
+    where: { id: Number(id) },
+    data: { isActive },
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      `Shop product ${isActive ? "activated" : "deactivated"} successfully`,
+      product
+    )
+  );
+});
+const getLiveMapData = asyncHandler(async (req, res) => {
+  const [shops, riders] = await prisma.$transaction([
+    prisma.shopkeeper.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        shopName: true,
+        shopCategory: true,
+        user: {
+            select: {
+                name: true,
+                phone: true,
+                address: {
+                    where: { isDeleted: false },
+                    take: 1 
+                }
+            }
+        }
+      }
+    }),
+    prisma.deliveryBoy.findMany({
+        select: {
+            id: true,
+            currentLat: true,
+            currentLng: true,
+            isAvailable: true,
+            user: { select: { name: true, phone: true } }
+        }
+    })
+  ]);
+
+  // Process Shops to extract Coordinates
+  const processedShops = shops.map(shop => {
+      // Parse geoLocation string "lat,lng" if available
+      let lat = 0, lng = 0;
+      const addr = shop.user.address[0];
+      if (addr && addr.geoLocation) {
+          const parts = addr.geoLocation.split(',');
+          if (parts.length === 2) {
+              lat = parseFloat(parts[0].trim());
+              lng = parseFloat(parts[1].trim());
+          }
+      }
+      return {
+          id: shop.id,
+          name: shop.shopName,
+          category: shop.shopCategory,
+          owner: shop.user.name,
+          phone: shop.user.phone,
+          lat,
+          lng,
+          status: 'active'
+      };
+  }).filter(s => s.lat !== 0 && s.lng !== 0); // Only return shops with valid location
+
+  const processedRiders = riders.map(rider => ({
+      id: rider.id,
+      name: rider.user.name,
+      phone: rider.user.phone,
+      lat: rider.currentLat || 0,
+      lng: rider.currentLng || 0,
+      status: rider.isAvailable ? 'available' : 'busy' // Simplified status
+  })).filter(r => r.lat !== 0 && r.lng !== 0);
+
+  res.status(200).json(new ApiResponse(200, "Live map data fetched", {
+      shops: processedShops,
+      riders: processedRiders
+  }));
+});

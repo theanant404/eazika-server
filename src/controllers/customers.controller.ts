@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
 import { createOrderSchema } from "../validations/product.validation";
+import { Prisma } from "../generated/prisma/client";
 
 /* ================================= Customer Products Controllers ============================ */
 
@@ -17,10 +18,13 @@ const getProducts = asyncHandler(async (req, res) => {
   const skip = (currentPage - 1) * itemsPerPage;
 
   // 2. City Filtering (ADDED)
-  const city = req.query.city as string;
+  const rawCity = req.query.city as string;
+  const city = rawCity ? rawCity.trim() : undefined;
+  
   const whereClause: any = { isActive: true };
 
   if (city) {
+    console.log("Filtering by city:", city);
     whereClause.shopkeeper = {
       user: {
         address: {
@@ -28,12 +32,17 @@ const getProducts = asyncHandler(async (req, res) => {
             city: {
               equals: city,
               mode: 'insensitive' // Case-insensitive match
-            }
+            },
+            isDeleted: false
           }
         }
       }
     };
+  } else {
+    console.log("No city provided in query params");
   }
+
+  console.log("whereClause:", JSON.stringify(whereClause, null, 2));
 
   const [products, totalCount] = await prisma.$transaction([
     prisma.shopProduct.findMany({
@@ -48,7 +57,19 @@ const getProducts = asyncHandler(async (req, res) => {
             unit: true,
           },
         },
-        globalProduct: true,
+        globalProduct: {
+          include: {
+            prices: {
+              select: {
+                id: true,
+                price: true,
+                discount: true,
+                weight: true,
+                unit: true,
+              },
+            },
+          },
+        },
         productCategories: true,
         shopkeeper: true, // Included for verification if needed
       },
@@ -62,6 +83,14 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const filteredProducts = products.map((p) => {
     const isGlobal = p.isGlobalProduct;
+    // Use shop-specific prices if available, otherwise fallback to global product prices
+    const prices =
+      p.prices && p.prices.length > 0
+        ? p.prices
+        : isGlobal && p.globalProduct?.prices
+        ? p.globalProduct.prices
+        : [];
+
     return {
       id: p.id,
       isGlobalProduct: p.isGlobalProduct,
@@ -70,7 +99,7 @@ const getProducts = asyncHandler(async (req, res) => {
       name: isGlobal ? p.globalProduct?.name : p.name,
       description: isGlobal ? p.globalProduct?.description : p.description,
       images: isGlobal ? p.globalProduct?.images : p.images,
-      prices: p.prices,
+      prices: prices,
     };
   });
 
@@ -93,6 +122,7 @@ const getProducts = asyncHandler(async (req, res) => {
 const getAvailableCities = asyncHandler(async (req, res) => {
   const locations = await prisma.address.findMany({
     where: {
+      isDeleted: false,
       user: {
         shopkeeper: {
           isActive: true
@@ -206,7 +236,7 @@ const addToCart = asyncHandler(async (req, res) => {
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const item = await prisma.$transaction(async (tx) => {
+  const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const product = await tx.shopProduct.findUnique({
       where: {
         id: productId,
@@ -350,7 +380,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const order = await prisma.$transaction(async (tx) => {
+  const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const address = await tx.address.findFirst({
       where: { id: addressId, userId: req.user!.id },
     });
@@ -373,27 +403,46 @@ const createOrder = asyncHandler(async (req, res) => {
     if (product.length === 0)
       throw new ApiError(400, "No valid products found for the order items");
 
+    const items: any[] = [];
     let totalAmount = 0;
 
-    const items = await product.map((p) => {
-      const quantity = orderItems.find(
-        (item) =>
-          Number(item.productId) === p.id &&
-          Number(item.priceId) === p.prices[0].id
-      )!.quantity;
+    // Create a map for quick lookup
+    const productMap = new Map();
+    const priceMap = new Map();
 
-      const amount = p.prices[0].price;
-      totalAmount += amount * quantity;
-
-      return {
-        shopProductId: p.id, // Mapped correctly to schema
-        productPriceId: p.prices[0].id, // Mapped correctly to schema
-        quantity: quantity,
-        // price/weight/unit are not stored in OrderItem schema based on your earlier schema file, 
-        // they are relational lookups. If you want snapshot, you need schema changes.
-        // For now, mapping to existing OrderItem fields:
-      };
+    product.forEach(p => {
+      productMap.set(p.id, p);
+      p.prices.forEach(pr => priceMap.set(pr.id, pr));
     });
+
+    for (const item of orderItems) {
+      const pId = Number(item.productId);
+      const prId = Number(item.priceId);
+
+      const prod = productMap.get(pId);
+      const priceDetails = priceMap.get(prId);
+
+      if (!prod || !priceDetails) {
+        throw new ApiError(400, `Invalid product or price for item ${pId}`);
+      }
+
+      // Verify the price belongs to the product (though the query structure implicitly enforces this relation in Prisma mostly, explicit check is safer)
+      // Since our query fetches products and includes constrained prices, we just need to ensure the price exists in our map.
+      // But strictly, we should ensure priceDetails.shopProductId === prod.id if that relation exists on price, or just trust the nested fetch.
+      // The previous query `include: { prices: ... }` ensures `priceDetails` is associated with `prod`.
+      
+      const amount = priceDetails.price;
+      totalAmount += amount * item.quantity;
+
+      items.push({
+        productId: pId, 
+        priceId: prId, 
+        quantity: item.quantity,
+        price: priceDetails.price,
+        weight: priceDetails.weight,
+        unit: priceDetails.unit
+      });
+    }
 
     // console.log("Total Items Amount:", totalAmount);
     return await tx.order.create({
@@ -539,6 +588,8 @@ const trackOrder = asyncHandler(async (req, res) => {
           name: order.deliveryBoy.user.name,
           phone: order.deliveryBoy.user.phone,
           vehicleNo: order.deliveryBoy.vehicleNo,
+          currentLat: order.deliveryBoy.currentLat,
+          currentLng: order.deliveryBoy.currentLng,
         }
       : null,
   };

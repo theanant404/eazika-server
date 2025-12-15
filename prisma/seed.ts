@@ -1,4 +1,4 @@
-import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaClient, Prisma } from "../src/generated/prisma/client";
 const prisma = new PrismaClient();
 import { globalProductList as globalProducts } from "./globalProductList";
 
@@ -37,7 +37,7 @@ async function main() {
   //     return createdProduct;
   //   });
 
-  const creatglobalProducts = prisma.$transaction(async (tx) => {
+  const creatglobalProducts = prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     let created = 0;
     const categories: Record<string, number> = {};
 
