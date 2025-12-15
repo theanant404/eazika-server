@@ -19,7 +19,36 @@ export const shopRegistrationSchema = zod.object({
     .min(1, "At least one shop image is required"),
   fssaiNumber: zod.string().optional(),
   gstNumber: zod.string().optional(),
-  bankDetail: zod.object({
+
+  documents: zod.object({
+    aadharImage: zod.string().url("Aadhar image must be a valid URL"),
+    electricityBillImage: zod
+      .string()
+      .url("Electricity bill image must be a valid URL"),
+    businessCertificateImage: zod
+      .string()
+      .url("Business certificate image must be a valid URL"),
+    panImage: zod.string().url("PAN image must be a valid URL").optional(),
+  }),
+});
+
+export const updateStockAndPriceSchema = zod.object({
+  price: zod.number().positive("Price must be a positive number"),
+  discount: zod
+    .number()
+    .min(0, "Discount cannot be negative")
+    .max(100, "Discount cannot exceed 100%"),
+  weight: zod.number().positive("Weight must be a positive number"),
+  stock: zod
+    .number()
+    .int("Stock must be an integer")
+    .min(0, "Stock cannot be negative")
+    .optional(),
+  unit: zod.enum(["grams", "kg", "ml", "litre", "piece"]).default("grams"),
+});
+
+/*
+bankDetail: zod.object({
     accountHolderName: zod
       .string()
       .min(2, "Account holder name must be at least 2 characters long")
@@ -44,14 +73,4 @@ export const shopRegistrationSchema = zod.object({
       .url("Bank passbook image must be a valid URL")
       .optional(),
   }),
-  document: zod.object({
-    aadharImage: zod.string().url("Aadhar image must be a valid URL"),
-    electricityBillImage: zod
-      .string()
-      .url("Electricity bill image must be a valid URL"),
-    businessCertificateImage: zod
-      .string()
-      .url("Business certificate image must be a valid URL"),
-    panImage: zod.string().url("PAN image must be a valid URL").optional(),
-  }),
-});
+*/

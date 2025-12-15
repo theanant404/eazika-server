@@ -5,45 +5,34 @@ import { isShopkeeper, authMiddleware } from "../middlewares/auth.middleware";
 const router = Router();
 
 // ========= Shop Management Routes ==========
-router.post("/create-shop", authMiddleware, shop.createShop); // POST /api/v2/shops/create-shop - Create new shop (converts user to shopkeeper role)
-router.put("/update-shop", isShopkeeper, shop.updateShop); // PUT /api/v2/shops/update-shop - Update shop details (name, category, images, FSSAI, GST)
+router.post("/create-shop", authMiddleware, shop.createShop);
+router.put("/update-shop", isShopkeeper, shop.updateShop);
 
 // ========== Product Management Routes ==========
-router.get("/products", isShopkeeper, shop.getShopProducts);
-router.get("/products/get-global", isShopkeeper, shop.getGlobalProducts);
-router.post("/products/add-shop-product", isShopkeeper, shop.addShopProduct);
-router.post(
-  "/products/add-shop-global-product",
-  isShopkeeper,
-  shop.addShopGlobalProduct
+const product = Router();
+router.use("/products", isShopkeeper, product); // all product routes require shopkeeper authentication
+product.get("/get-all-categories", shop.getShopCategories);
+product.post("/add-shop-product", shop.addShopProduct);
+product.get("/get-all-product", shop.getShopProducts);
+product.get("/get-all-global-product", shop.getGlobalProducts);
+// product.post("/add-shop-global-product", shop.addShopGlobalProduct);
+product.put(
+  "/update-shop-product-stock-and-price/:priceId",
+  shop.updateStockAndPrice
 );
+product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);
+product.put("/update-shop-product/:productId", shop.updateShopProduct);
 
-router.put(
-  "/update-shop-product/:productId",
-  isShopkeeper,
-  shop.updateShopProduct
-);
-router.delete(
-  "/delete-shop-product/:productId",
-  isShopkeeper,
-  shop.deleteShopProduct
-);
-router.put(
-  "/update-shop-product-stock/:productId",
-  isShopkeeper,
-  shop.updateShopProductStock
-);
-router.get("/get-user", isShopkeeper, shop.getUserByPhone);
-router.patch(
-  "/send-invite-to-delivery",
-  isShopkeeper,
-  shop.sendInviteToDeliveryPartner
-);
-// router.get("/get-shop-orders", isShopkeeper, shop.getShopOrders); -- Already added
-router.get("/get-shop-orders", isShopkeeper, shop.getShopOrders);
-router.post("/assign-order", isShopkeeper, shop.assignDeliveryPartner);
-router.patch("/update-order-status", isShopkeeper, shop.updateOrderStatus);
+// ========== Other Shop Routes ==========
+const order = Router();
+router.use("/orders", isShopkeeper, order);
+order.get("/get-current-orders", shop.getCurrentOrders);
+order.get("/order/:orderId", shop.getOrderById);
+order.put("/order/status/:orderId", shop.updateOrderStatus);
 
-router.get("/analytics", isShopkeeper, shop.getShopAnalytics);
+// order.get("/get-order-history", shop.getOrderHistory);
+
+order.get("/get-user:phone", shop.getUserByPhone);
+router.patch("/send-invite-to-delivery", shop.sendInviteToDeliveryPartner);
 
 export default router;
