@@ -406,24 +406,7 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Product added successfully", product));
 });
 
-const deleteShopProduct = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const { productId } = req.params;
-
-  const product = await prisma.shopProduct.delete({
-    where: {
-      id: parseInt(productId),
-      shopkeeper: { userId: req.user.id },
-    },
-  });
-  if (!product) {
-    throw new ApiError(404, "Product not found or unauthorized");
-  }
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Product deleted successfully", { product }));
-});
 /**
  * Update shop product details
  * Request params: productId
@@ -724,68 +707,7 @@ const getUserByPhone = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, "User fetched successfully", user));
 });
-const updateOrderStatus = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const { orderId } = req.params;
-  const { status, rider } = req.body;
-
-  if (!orderId) {
-    throw new ApiError(400, "orderId is required");
-  }
-
-  if (!["shipped", "confirmed"].includes(status)) {
-    throw new ApiError(400, "status is required");
-  }
-
-  let order = null;
-
-  if (rider && status === "shipped") {
-    order = await prisma.$transaction(async (tx) => {
-      const deliveryBoy = await tx.deliveryBoy.findFirst({
-        where: {
-          userId: rider,
-          shopkeeper: { userId: req.user?.id },
-        },
-      });
-      if (!deliveryBoy) {
-        throw new ApiError(404, "Delivery partner not found for this shop");
-      }
-
-      return await tx.order.update({
-        where: {
-          id: parseInt(orderId),
-          orderItems: {
-            some: { product: { shopkeeper: { userId: req.user?.id } } },
-          },
-        },
-        data: {
-          status,
-          assignedDeliveryBoyId: deliveryBoy.id,
-          // deliveryBoy: { connect: { id: deliveryBoy.id } },
-        },
-      });
-    });
-  } else if (status === "confirmed") {
-    order = await prisma.order.update({
-      where: {
-        id: parseInt(orderId),
-        orderItems: {
-          some: { product: { shopkeeper: { userId: req.user.id } } },
-        },
-      },
-      data: { status },
-    });
-  }
-
-  if (!order) {
-    throw new ApiError(404, "Order not found or unauthorized");
-  }
-
-  return res.json(
-    new ApiResponse(200, "Order status updated successfully", { order })
-  );
-});
 
 /**
  * Send invite to delivery partner
@@ -1195,6 +1117,7 @@ export {
   sendInviteToDeliveryPartner,
   getShopOrders,
   assignDeliveryPartner,
-  updateOrderStatus,
+  // updateOrderStatus, // Removed duplicate
+
   getShopAnalytics,
 };
