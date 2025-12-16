@@ -173,6 +173,7 @@ model DeliveryBoy {
   currentLat         Float?    @map("current_lat")
   currentLng         Float?    @map("current_lng")
   isAvailable        Boolean   @default(true) @map("is_available")
+  isVerified         Boolean   @default(false) @map("is_verified")
   lastLocationUpdate DateTime? @map("last_location_update")
 
   // Timestamps
