@@ -35,4 +35,9 @@ order.put("/order/status/:orderId", shop.updateOrderStatus);
 order.get("/get-user:phone", shop.getUserByPhone);
 router.patch("/send-invite-to-delivery", shop.sendInviteToDeliveryPartner);
 
+// ========== Rider Management Routes ==========
+router.get("/get-riders", isShopkeeper, shop.getShopRiders);
+router.patch("/approve-rider", isShopkeeper, shop.approveRider);
+router.delete("/reject-rider", isShopkeeper, shop.rejectRider);
+
 export default router;

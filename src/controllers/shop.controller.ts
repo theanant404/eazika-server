@@ -427,24 +427,6 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Product added successfully", product));
 });
 
-const deleteShopProduct = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  const { productId } = req.params;
-
-  const product = await prisma.shopProduct.delete({
-    where: {
-      id: parseInt(productId),
-      shopkeeper: { userId: req.user.id },
-    },
-  });
-  if (!product) {
-    throw new ApiError(404, "Product not found or unauthorized");
-  }
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Product deleted successfully", { product }));
-});
 /**
  * Update shop product details
  * Request params: productId
@@ -744,69 +726,6 @@ const getUserByPhone = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "User fetched successfully", user));
-});
-
-const updateOrderStatus = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  const { orderId } = req.params;
-  const { status, rider } = req.body;
-
-  if (!orderId) {
-    throw new ApiError(400, "orderId is required");
-  }
-
-  if (!["shipped", "confirmed"].includes(status)) {
-    throw new ApiError(400, "status is required");
-  }
-
-  let order = null;
-
-  if (rider && status === "shipped") {
-    order = await prisma.$transaction(async (tx) => {
-      const deliveryBoy = await tx.deliveryBoy.findFirst({
-        where: {
-          userId: rider,
-          shopkeeper: { userId: req.user?.id },
-        },
-      });
-      if (!deliveryBoy) {
-        throw new ApiError(404, "Delivery partner not found for this shop");
-      }
-
-      return await tx.order.update({
-        where: {
-          id: parseInt(orderId),
-          orderItems: {
-            some: { product: { shopkeeper: { userId: req.user?.id } } },
-          },
-        },
-        data: {
-          status,
-          assignedDeliveryBoyId: deliveryBoy.id,
-          // deliveryBoy: { connect: { id: deliveryBoy.id } },
-        },
-      });
-    });
-  } else if (status === "confirmed") {
-    order = await prisma.order.update({
-      where: {
-        id: parseInt(orderId),
-        orderItems: {
-          some: { product: { shopkeeper: { userId: req.user.id } } },
-        },
-      },
-      data: { status },
-    });
-  }
-
-  if (!order) {
-    throw new ApiError(404, "Order not found or unauthorized");
-  }
-
-  return res.json(
-    new ApiResponse(200, "Order status updated successfully", { order })
-  );
 });
 
 /**
@@ -1210,6 +1129,81 @@ const assignDeliveryPartner = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Rider assigned successfully", updatedOrder));
 });
 
+const getShopRiders = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const status = req.query.status as string; // 'pending' | 'verified' | 'all'
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+  });
+  if (!shopkeeper) throw new ApiError(404, "Shopkeeper profile not found");
+
+  const whereClause: any = { shopkeeperId: shopkeeper.id };
+  if (status === "pending") whereClause.isVerified = false;
+  if (status === "verified") whereClause.isVerified = true;
+
+  const riders = await prisma.deliveryBoy.findMany({
+    where: whereClause,
+    include: {
+      user: { select: { id: true, name: true, phone: true, image: true } },
+    },
+  });
+
+  return res.status(200).json(new ApiResponse(200, "Riders fetched", riders));
+});
+
+const approveRider = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const { riderId } = req.body;
+
+  // Verify shopkeeper owns this rider request
+  const rider = await prisma.deliveryBoy.findFirst({
+    where: {
+      id: riderId,
+      shopkeeper: { userId: req.user.id },
+    },
+  });
+  if (!rider) throw new ApiError(404, "Rider request not found");
+
+  const updated = await prisma.deliveryBoy.update({
+    where: { id: riderId },
+    data: { isVerified: true },
+  });
+
+  return res.status(200).json(new ApiResponse(200, "Rider approved", updated));
+});
+
+const rejectRider = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const { riderId } = req.body;
+
+  // Verify shopkeeper owns this rider request
+  const rider = await prisma.deliveryBoy.findFirst({
+    where: {
+      id: riderId,
+      shopkeeper: { userId: req.user.id },
+    },
+  });
+  if (!rider) throw new ApiError(404, "Rider request not found");
+
+  // Delete the profile so they can re-apply or just to remove from list
+  // Also revert user role if needed?
+  // If we delete DeliveryBoy, user role stays "delivery_boy". We should probably revert it to "user".
+
+  await prisma.$transaction(async (tx) => {
+    await tx.deliveryBoy.delete({ where: { id: riderId } });
+    await tx.user.update({
+      where: { id: rider.userId },
+      data: { role: "user" },
+    });
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Rider rejected and removed"));
+});
+
 export {
   createShop,
   updateShop,
@@ -1220,7 +1214,7 @@ export {
   addShopProduct,
   updateShopProduct,
   updateStockAndPrice,
-  deleteShopProduct,
+  // deleteShopProduct,
   getCurrentOrders,
   getOrderById,
   // getOrderHistory,
@@ -1229,6 +1223,9 @@ export {
   sendInviteToDeliveryPartner,
   getShopOrders,
   assignDeliveryPartner,
-  updateOrderStatus,
+  // updateOrderStatus, // Removed duplicate
   getShopAnalytics,
+  getShopRiders,
+  approveRider,
+  rejectRider,
 };

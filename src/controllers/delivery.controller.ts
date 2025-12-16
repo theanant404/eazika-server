@@ -486,8 +486,24 @@ const getDeliveryProfile = asyncHandler(async (req, res) => {
 
   if (!deliveryBoy) throw new ApiError(404, "Profile not found");
 
+  // Calculate Total Earnings (Sum of totalAmount of delivered orders)
+  const earnings = await prisma.order.aggregate({
+    where: {
+        assignedDeliveryBoyId: deliveryBoy.id,
+        status: 'delivered'
+    },
+    _sum: {
+        totalAmount: true
+    }
+  });
+
+  const profileWithStats = {
+      ...deliveryBoy,
+      totalEarnings: earnings._sum.totalAmount || 0
+  };
+
   return res.status(200).json(
-    new ApiResponse(200, "Profile fetched", deliveryBoy)
+    new ApiResponse(200, "Profile fetched", profileWithStats)
   );
 });
 
