@@ -20,6 +20,53 @@ export const shopRegistrationSchema = zod.object({
   fssaiNumber: zod.string().optional(),
   gstNumber: zod.string().optional(),
 
+  address: zod.object({
+    name: zod
+      .string()
+      .min(2, "Name must be at least 2 characters long")
+      .max(100, "Name must be at most 100 characters long"),
+    phone: zod
+      .string()
+      .regex(/^\+?[1-9]\d{1,14}$/, "Phone number must be a valid E.164 format"),
+    line1: zod
+      .string()
+      .min(5, "Address line 1 must be at least 5 characters long")
+      .max(100, "Address line 1 must be at most 100 characters long"),
+    line2: zod
+      .string()
+      .max(100, "Address line 2 must be at most 100 characters long")
+      .optional(),
+    street: zod
+      .string()
+      .min(5, "Street must be at least 5 characters long")
+      .max(100, "Street must be at most 100 characters long"),
+    city: zod
+      .string()
+      .min(2, "City must be at least 2 characters long")
+      .max(50, "City must be at most 50 characters long"),
+    state: zod
+      .string()
+      .min(2, "State must be at least 2 characters long")
+      .max(50, "State must be at most 50 characters long"),
+    pinCode: zod
+      .string()
+      .min(4, "Zip code must be at least 4 characters long")
+      .max(10, "Zip code must be at most 10 characters long"),
+    country: zod
+      .string()
+      .min(2, "Country must be at least 2 characters long")
+      .max(50, "Country must be at most 50 characters long"),
+
+    // "21.159959619455346,79.00436434054704"
+    geolocation: zod
+      .string()
+      .regex(
+        /^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$/,
+        "Geolocation must be in 'latitude,longitude' format"
+      )
+      .optional(),
+  }),
+
   documents: zod.object({
     aadharImage: zod.string().url("Aadhar image must be a valid URL"),
     electricityBillImage: zod
