@@ -290,16 +290,31 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
 
 /**
  * Get nearby shops for delivery partner registration
- * Query params: lat, lng
+ * Query params: lat, lng, city (optional)
  * - Returns list of shops with basic details
  * - For MVP, returns all shops. In future, implement geospatial query.
  */
 const getNearbyShops = asyncHandler(async (req, res) => {
   // const { lat, lng } = req.query; 
+  const city = req.query.city as string | undefined;
+
+  let addressWhere: any = { isDeleted: false };
+  if (city) {
+    // Case insensitive partial match
+    addressWhere.city = { contains: city, mode: 'insensitive' };
+  }
 
   // Fetch all shopkeepers with their address
   const shops = await prisma.shopkeeper.findMany({
-    where: { isActive: true },
+    where: { 
+      isActive: true,
+      // If city is provided, we only want shops in that city
+      user: {
+        address: {
+            some: addressWhere
+        }
+      }
+    },
     select: {
       id: true,
       shopName: true,
@@ -329,6 +344,32 @@ const getNearbyShops = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(200, "Shops fetched successfully", formattedShops)
   );
+});
+
+/**
+ * Get Available Cities
+ * - Returns list of unique cities where shops are located
+ */
+const getAvailableCities = asyncHandler(async (req, res) => {
+    const cities = await prisma.address.findMany({
+        where: {
+            isDeleted: false,
+            user: {
+                role: 'shopkeeper',
+                shopkeeper: {
+                    isActive: true
+                }
+            }
+        },
+        select: { city: true },
+        distinct: ['city']
+    });
+
+    const uniqueCities = cities.map(c => c.city).filter(Boolean);
+
+    return res.status(200).json(
+        new ApiResponse(200, "Cities fetched successfully", uniqueCities)
+    );
 });
 
 
@@ -445,8 +486,24 @@ const getDeliveryProfile = asyncHandler(async (req, res) => {
 
   if (!deliveryBoy) throw new ApiError(404, "Profile not found");
 
+  // Calculate Total Earnings (Sum of totalAmount of delivered orders)
+  const earnings = await prisma.order.aggregate({
+    where: {
+        assignedDeliveryBoyId: deliveryBoy.id,
+        status: 'delivered'
+    },
+    _sum: {
+        totalAmount: true
+    }
+  });
+
+  const profileWithStats = {
+      ...deliveryBoy,
+      totalEarnings: earnings._sum.totalAmount || 0
+  };
+
   return res.status(200).json(
-    new ApiResponse(200, "Profile fetched", deliveryBoy)
+    new ApiResponse(200, "Profile fetched", profileWithStats)
   );
 });
 
@@ -458,5 +515,6 @@ export {
   updateLocation,
   getNearbyShops,
   toggleAvailability,
-  getDeliveryProfile
+  getDeliveryProfile,
+  getAvailableCities
 };

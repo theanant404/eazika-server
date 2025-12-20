@@ -118,8 +118,9 @@ model Address {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user   User    @relation("User_addresses", fields: [userId], references: [id])
-  orders Order[]
+  user        User         @relation("User_addresses", fields: [userId], references: [id])
+  orders      Order[]
+  shopkeepers Shopkeeper[]
 
   @@map("addresses")
 }
@@ -127,6 +128,7 @@ model Address {
 model Shopkeeper {
   id           Int  @id @default(autoincrement())
   userId       Int  @unique @map("user_id")
+  addressId    Int  @map("address_id")
   documentId   Int  @unique @map("document_id")
   bankDetailId Int? @unique @map("bank_detail_id")
 
@@ -145,6 +147,7 @@ model Shopkeeper {
 
   // Relations
   user         User               @relation(fields: userId, references: id)
+  address      Address            @relation(fields: addressId, references: id)
   document     ShopkeeperDocument @relation(fields: documentId, references: id)
   bankDetail   BankDetail?        @relation(fields: bankDetailId, references: id)
   shopProducts ShopProduct[]
@@ -173,6 +176,7 @@ model DeliveryBoy {
   currentLat         Float?    @map("current_lat")
   currentLng         Float?    @map("current_lng")
   isAvailable        Boolean   @default(true) @map("is_available")
+  isVerified         Boolean   @default(false) @map("is_verified")
   lastLocationUpdate DateTime? @map("last_location_update")
 
   // Timestamps

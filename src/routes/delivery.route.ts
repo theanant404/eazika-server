@@ -41,6 +41,7 @@ router.post(
 
 router.put(
   "/update-delivery-profile",
+  auth.authMiddleware,
   auth.isDeliveryBoy,
   delivery.updateDeliveryProfile
 ); // PUT /api/v2/delivery/update-delivery-profile - Update delivery profile (vehicle details, PAN, license images)
@@ -56,21 +57,30 @@ router.put(
  */
 router.get(
   "/get-assigned-orders",
+  auth.authMiddleware,
   auth.isDeliveryBoy,
   delivery.getAssignedOrders
 ); // GET /api/v2/delivery/get-assigned-orders - Get all orders assigned to delivery partner (supports status filter)
 
 router.patch(
   "/update-order-status",
+  auth.authMiddleware,
   auth.isDeliveryBoy,
   delivery.updateOrderStatus
 ); // PATCH /api/v2/delivery/update-order-status - Update order status (confirmed -> shipped -> delivered)
 
 router.patch(
   "/update-location",
+  auth.authMiddleware,
   auth.isDeliveryBoy,
   delivery.updateLocation
 ); // PATCH /api/v2/delivery/update-location - Update rider location
+
+router.get(
+  "/cities/available",
+  auth.authMiddleware,
+  delivery.getAvailableCities
+); // GET /api/v2/delivery/cities/available - Get available cities
 
 router.get(
   "/shops/nearby",
@@ -80,12 +90,14 @@ router.get(
 
 router.patch(
   "/availability",
+  auth.authMiddleware,
   auth.isDeliveryBoy,
   delivery.toggleAvailability
 ); // PATCH /api/v2/delivery/availability - Toggle rider online/offline
 
 router.get(
   "/profile",
+  auth.authMiddleware,
   auth.isDeliveryBoy,
   delivery.getDeliveryProfile
 ); // GET /api/v2/delivery/profile - Get delivery profile info
