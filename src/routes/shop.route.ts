@@ -20,7 +20,7 @@ product.put(
   "/update-shop-product-stock-and-price/:priceId",
   shop.updateStockAndPrice
 );
-product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);
+// product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);
 product.put("/update-shop-product/:productId", shop.updateShopProduct);
 
 // ========== Other Shop Routes ==========
@@ -29,11 +29,10 @@ router.use("/orders", isShopkeeper, order);
 order.get("/get-current-orders", shop.getCurrentOrders);
 order.get("/order/:orderId", shop.getOrderById);
 order.put("/order/status/:orderId", shop.updateOrderStatus);
-
 // order.get("/get-order-history", shop.getOrderHistory);
 
-order.get("/get-user:phone", shop.getUserByPhone);
-router.patch("/send-invite-to-delivery", shop.sendInviteToDeliveryPartner);
+// order.get("/get-user:phone", shop.getUserByPhone);
+// router.patch("/send-invite-to-delivery", shop.sendInviteToDeliveryPartner);
 
 // ========== Rider Management Routes ==========
 router.get("/get-riders", isShopkeeper, shop.getShopRiders);

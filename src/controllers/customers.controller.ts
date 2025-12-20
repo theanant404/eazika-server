@@ -3,6 +3,7 @@ import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
 import { createOrderSchema } from "../validations/product.validation";
 import { Prisma } from "../generated/prisma/client";
+import { is } from "zod/v4/locales";
 
 /* ================================= Customer Products Controllers ============================ */
 
@@ -13,73 +14,82 @@ const getProducts = asyncHandler(async (req, res) => {
       currentPage: string;
       itemsPerPage: string;
     }) || {};
-  const currentPage = parseInt(pagination.currentPage || (req.query.page as string) || "1");
-  const itemsPerPage = parseInt(pagination.itemsPerPage || (req.query.limit as string) || "10");
+  const currentPage = parseInt(
+    pagination.currentPage || (req.query.page as string) || "1"
+  );
+  const itemsPerPage = parseInt(
+    pagination.itemsPerPage || (req.query.limit as string) || "10"
+  );
   const skip = (currentPage - 1) * itemsPerPage;
 
   // 2. City Filtering (ADDED)
   const rawCity = req.query.city as string;
   const city = rawCity ? rawCity.trim() : undefined;
-  
-  const whereClause: any = { isActive: true };
 
-  if (city) {
-    console.log("Filtering by city:", city);
-    whereClause.shopkeeper = {
-      user: {
+  // const whereClause: any = { isActive: true };
+
+  // if (city) {
+  //   console.log("Filtering by city:", city);
+  //   whereClause.shopkeeper = {
+  //     user: {
+  //       address: {
+  //         some: {
+  //           city: {
+  //             equals: city,
+  //             mode: "insensitive", // Case-insensitive match
+  //           },
+  //           isDeleted: false,
+  //         },
+  //       },
+  //     },
+  //   };
+  // } else {
+  //   console.log("No city provided in query params");
+  // }
+
+  // console.log("whereClause:", JSON.stringify(whereClause, null, 2));
+
+  const products = await prisma.shopProduct.findMany({
+    where: {
+      shopkeeper: {
         address: {
-          some: {
-            city: {
-              equals: city,
-              mode: 'insensitive' // Case-insensitive match
-            },
-            isDeleted: false
-          }
-        }
-      }
-    };
-  } else {
-    console.log("No city provided in query params");
-  }
-
-  console.log("whereClause:", JSON.stringify(whereClause, null, 2));
-
-  const [products, totalCount] = await prisma.$transaction([
-    prisma.shopProduct.findMany({
-      where: whereClause, // Updated to use whereClause
-      include: {
-        prices: {
-          select: {
-            id: true,
-            price: true,
-            discount: true,
-            weight: true,
-            unit: true,
-          },
+          city: city ? { equals: city, mode: "insensitive" } : undefined,
+          state: city ? undefined : undefined,
+          isDeleted: false,
         },
-        globalProduct: {
-          include: {
-            prices: {
-              select: {
-                id: true,
-                price: true,
-                discount: true,
-                weight: true,
-                unit: true,
-              },
-            },
-          },
-        },
-        productCategories: true,
-        shopkeeper: true, // Included for verification if needed
       },
-      skip,
-      take: itemsPerPage,
-    }),
-    prisma.shopProduct.count({
-      where: whereClause,
-    }),
-  ]);
+      isActive: true,
+    },
+
+    include: {
+      prices: {
+        select: {
+          id: true,
+          price: true,
+          discount: true,
+          weight: true,
+          unit: true,
+        },
+      },
+      globalProduct: {
+        include: {
+          prices: {
+            select: {
+              id: true,
+              price: true,
+              discount: true,
+              weight: true,
+              unit: true,
+            },
+          },
+        },
+      },
+      productCategories: true,
+      shopkeeper: true, // Included for verification if needed
+    },
+    skip,
+    take: itemsPerPage,
+  });
 
   const filteredProducts = products.map((p) => {
     const isGlobal = p.isGlobalProduct;
@@ -88,8 +98,8 @@ const getProducts = asyncHandler(async (req, res) => {
       p.prices && p.prices.length > 0
         ? p.prices
         : isGlobal && p.globalProduct?.prices
-        ? p.globalProduct.prices
-        : [];
+          ? p.globalProduct.prices
+          : [];
 
     return {
       id: p.id,
@@ -109,8 +119,8 @@ const getProducts = asyncHandler(async (req, res) => {
       pagination: {
         currentPage,
         itemsPerPage,
-        totalItems: totalCount,
-        totalPages: Math.ceil(totalCount / itemsPerPage),
+        total: filteredProducts.length,
+        pages: Math.ceil(filteredProducts.length / itemsPerPage),
       },
     })
   );
@@ -120,26 +130,27 @@ const getProducts = asyncHandler(async (req, res) => {
  * Get list of cities where Eazika is active (ADDED)
  */
 const getAvailableCities = asyncHandler(async (req, res) => {
+  console.log("Fetching available cities for Eazika service");
   const locations = await prisma.address.findMany({
     where: {
       isDeleted: false,
       user: {
         shopkeeper: {
-          isActive: true
-        }
-      }
+          isActive: true,
+        },
+      },
     },
     select: {
-      city: true
+      city: true,
     },
-    distinct: ['city']
+    distinct: ["city"],
   });
 
-  const cities = locations.map(loc => loc.city);
+  const cities = locations.map((loc) => loc.city);
 
-  return res.status(200).json(
-    new ApiResponse(200, "Available cities fetched", cities)
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Available cities fetched", cities));
 });
 
 const getProductById = asyncHandler(async (req, res) => {
@@ -236,49 +247,51 @@ const addToCart = asyncHandler(async (req, res) => {
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const product = await tx.shopProduct.findUnique({
-      where: {
-        id: productId,
-        isActive: true,
-      },
-      include: {
-        prices: { where: { id: priceId } },
-      },
-    });
-
-    if (!product) throw new ApiError(404, "Product not found or inactive");
-
-    // Check existing item
-    const existingItem = await tx.cartItem.findFirst({
+  const item = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      const product = await tx.shopProduct.findUnique({
         where: {
-            userId: req.user!.id,
-            shopProductId: productId,
-            productPriceId: priceId
-        }
-    });
+          id: productId,
+          isActive: true,
+        },
+        include: {
+          prices: { where: { id: priceId } },
+        },
+      });
 
-    if (existingItem) {
+      if (!product) throw new ApiError(404, "Product not found or inactive");
+
+      // Check existing item
+      const existingItem = await tx.cartItem.findFirst({
+        where: {
+          userId: req.user!.id,
+          shopProductId: productId,
+          productPriceId: priceId,
+        },
+      });
+
+      if (existingItem) {
         return tx.cartItem.update({
-            where: { id: existingItem.id },
-            data: { quantity: existingItem.quantity + parseInt(quantity) },
-            include: { productPrice: true, shopProduct: true }
+          where: { id: existingItem.id },
+          data: { quantity: existingItem.quantity + parseInt(quantity) },
+          include: { productPrice: true, shopProduct: true },
         });
-    }
+      }
 
-    return tx.cartItem.create({
-      data: {
-        userId: req.user?.id!,
-        shopProductId: productId,
-        productPriceId: priceId,
-        quantity: quantity,
-      },
-      include: {
-        productPrice: true,
-        shopProduct: true,
-      },
-    });
-  });
+      return tx.cartItem.create({
+        data: {
+          userId: req.user?.id!,
+          shopProductId: productId,
+          productPriceId: priceId,
+          quantity: quantity,
+        },
+        include: {
+          productPrice: true,
+          shopProduct: true,
+        },
+      });
+    }
+  );
   if (!item) throw new ApiError(500, "Failed to add item to cart");
 
   return res
@@ -380,82 +393,84 @@ const createOrder = asyncHandler(async (req, res) => {
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
-  const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const address = await tx.address.findFirst({
-      where: { id: addressId, userId: req.user!.id },
-    });
+  const order = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      const address = await tx.address.findFirst({
+        where: { id: addressId, userId: req.user!.id },
+      });
 
-    if (!address)
-      throw new ApiError(404, "Address not found or doesn't belong to user");
+      if (!address)
+        throw new ApiError(404, "Address not found or doesn't belong to user");
 
-    const product = await tx.shopProduct.findMany({
-      where: {
-        id: { in: orderItems.map((i) => Number(i.productId)) },
-        isActive: true,
-      },
-      include: {
-        prices: {
-          where: { id: { in: orderItems.map((i) => Number(i.priceId)) } },
+      const product = await tx.shopProduct.findMany({
+        where: {
+          id: { in: orderItems.map((i) => Number(i.productId)) },
+          isActive: true,
         },
-      },
-    });
+        include: {
+          prices: {
+            where: { id: { in: orderItems.map((i) => Number(i.priceId)) } },
+          },
+        },
+      });
 
-    if (product.length === 0)
-      throw new ApiError(400, "No valid products found for the order items");
+      if (product.length === 0)
+        throw new ApiError(400, "No valid products found for the order items");
 
-    const items: any[] = [];
-    let totalAmount = 0;
+      const items: any[] = [];
+      let totalAmount = 0;
 
-    // Create a map for quick lookup
-    const productMap = new Map();
-    const priceMap = new Map();
+      // Create a map for quick lookup
+      const productMap = new Map();
+      const priceMap = new Map();
 
-    product.forEach(p => {
-      productMap.set(p.id, p);
-      p.prices.forEach(pr => priceMap.set(pr.id, pr));
-    });
+      product.forEach((p) => {
+        productMap.set(p.id, p);
+        p.prices.forEach((pr) => priceMap.set(pr.id, pr));
+      });
 
-    for (const item of orderItems) {
-      const pId = Number(item.productId);
-      const prId = Number(item.priceId);
+      for (const item of orderItems) {
+        const pId = Number(item.productId);
+        const prId = Number(item.priceId);
 
-      const prod = productMap.get(pId);
-      const priceDetails = priceMap.get(prId);
+        const prod = productMap.get(pId);
+        const priceDetails = priceMap.get(prId);
 
-      if (!prod || !priceDetails) {
-        throw new ApiError(400, `Invalid product or price for item ${pId}`);
+        if (!prod || !priceDetails) {
+          throw new ApiError(400, `Invalid product or price for item ${pId}`);
+        }
+
+        // Verify the price belongs to the product (though the query structure implicitly enforces this relation in Prisma mostly, explicit check is safer)
+        // Since our query fetches products and includes constrained prices, we just need to ensure the price exists in our map.
+        // But strictly, we should ensure priceDetails.shopProductId === prod.id if that relation exists on price, or just trust the nested fetch.
+        // The previous query `include: { prices: ... }` ensures `priceDetails` is associated with `prod`.
+
+        const amount = priceDetails.price;
+        totalAmount += amount * item.quantity;
+
+        items.push({
+          productId: pId,
+          priceId: prId,
+          quantity: item.quantity,
+          price: priceDetails.price,
+          weight: priceDetails.weight,
+          unit: priceDetails.unit,
+        });
       }
 
-      // Verify the price belongs to the product (though the query structure implicitly enforces this relation in Prisma mostly, explicit check is safer)
-      // Since our query fetches products and includes constrained prices, we just need to ensure the price exists in our map.
-      // But strictly, we should ensure priceDetails.shopProductId === prod.id if that relation exists on price, or just trust the nested fetch.
-      // The previous query `include: { prices: ... }` ensures `priceDetails` is associated with `prod`.
-      
-      const amount = priceDetails.price;
-      totalAmount += amount * item.quantity;
-
-      items.push({
-        productId: pId, 
-        priceId: prId, 
-        quantity: item.quantity,
-        price: priceDetails.price,
-        weight: priceDetails.weight,
-        unit: priceDetails.unit
+      // console.log("Total Items Amount:", totalAmount);
+      return await tx.order.create({
+        data: {
+          userId: req.user!.id,
+          addressId: address.id,
+          paymentMethod: paymentMethod,
+          totalAmount,
+          totalProducts: items.length,
+          orderItems: { createMany: { data: items } },
+        },
       });
     }
-
-    // console.log("Total Items Amount:", totalAmount);
-    return await tx.order.create({
-      data: {
-        userId: req.user!.id,
-        addressId: address.id,
-        paymentMethod: paymentMethod,
-        totalAmount,
-        totalProducts: items.length,
-        orderItems: { createMany: { data: items } },
-      },
-    });
-  });
+  );
 
   return res
     .status(201)

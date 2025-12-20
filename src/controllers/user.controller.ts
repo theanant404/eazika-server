@@ -131,7 +131,16 @@ const verifyLoginOtp = asyncHandler(async (req, res) => {
   const result = await verifyOtp(phone, requestId, otp);
   if (!result.ok) throw new ApiError(400, result.reason);
 
-  const user = await prisma.user.findUnique({ where: { phone } });
+  let phoneOtpData = await redis.getPhoneOtpByRequestId(requestId);
+  if (!phoneOtpData) throw new ApiError(500, "otp_data_not_found");
+
+  // create user if not exists
+  const user = await prisma.user.upsert({
+    where: { phone: phoneOtpData.phone },
+    update: {},
+    create: { phone: phoneOtpData.phone, name: phoneOtpData?.name || "" },
+  });
+
   if (!user) throw new ApiError(404, "user_not_found");
   const refreshToken = jwt.signRefreshToken({ id: user.id, role: user.role });
   const accessToken = jwt.signAccessToken({ id: user.id, role: user.role });
@@ -250,9 +259,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     id: user.id,
     name: user.name,
     phone: user.phone,
-
     email: user.email,
-    role: user.role,
+    role: user.role === "delivery_boy" ? "rider" : user.role,
     addresses: user.address.map((addr) => ({
       id: addr.id,
       isDefult: addr.id === user.defaultAddressId,
