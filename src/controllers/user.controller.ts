@@ -242,6 +242,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     where: { id: req.user?.id },
     select: {
       id: true,
+      image: true,
       phone: true,
       name: true,
       role: true,
@@ -259,6 +260,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     id: user.id,
     name: user.name,
     phone: user.phone,
+    image: user.image,
     email: user.email,
     role: user.role === "delivery_boy" ? "rider" : user.role,
     addresses: user.address.map((addr) => ({
@@ -276,7 +278,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       geoLocation: addr.geoLocation,
     })),
   };
-
+  // console.log("Current User:", formatedUser);
   return res
     .status(200)
     .json(
@@ -342,9 +344,9 @@ const getAddresses = asyncHandler(async (req, res) => {
   if (!userId) throw new ApiError(401, "Unauthorized");
 
   const addresses = await prisma.address.findMany({
-    where: { 
+    where: {
       userId,
-      isDeleted: false 
+      isDeleted: false
     },
     orderBy: { createdAt: 'desc' }
   });
