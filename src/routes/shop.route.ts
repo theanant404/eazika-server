@@ -17,7 +17,7 @@ product.get("/get-all-product", shop.getShopProducts);
 product.get("/get-all-global-product", shop.getGlobalProducts);
 // product.post("/add-shop-global-product", shop.addShopGlobalProduct);
 product.put(
-  "/update-shop-product-stock-and-price/:priceId",
+  "/update-shop-product-stock-and-price",
   shop.updateStockAndPrice
 );
 // product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);

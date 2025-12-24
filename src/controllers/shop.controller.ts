@@ -314,7 +314,7 @@ const getShopCategories = asyncHandler(async (req, res) => {
   //   id: cat.id,
   //   name: cat.name,
   // }));
-  console.log("Fetched shop categories:", categories);
+  // console.log("Fetched shop categories:", categories);
 
   return res
     .status(200)
@@ -506,27 +506,71 @@ const updateStockAndPrice = asyncHandler(async (req, res) => {
   // 4. Return updated pricing info
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
+  const { prices } = req.body as { prices?: any };
 
-  const { priceId } = req.params;
+  // Bulk update path when prices array is provided
+  if (Array.isArray(prices)) {
+    if (prices.length === 0)
+      throw new ApiError(400, "prices array is empty");
+
+    const updates = await prisma.$transaction(async (tx) => {
+      const results = [] as any[];
+      for (const item of prices) {
+        const idNum = Number.parseInt((item?.id ?? "").toString(), 10);
+        if (!Number.isInteger(idNum) || idNum <= 0) {
+          throw new ApiError(400, "Invalid price id in prices array");
+        }
+
+        const updated = await tx.productPrice.update({
+          where: {
+            id: idNum,
+            shopProduct: { shopkeeper: { userId: req.user?.id } },
+          },
+          data: {
+            stock: Number(item.stock ?? 0),
+            price: Number(item.price ?? 0),
+            discount: Number(item.discount ?? 0),
+            weight: Number(item.weight ?? 0),
+            unit: item.unit,
+          },
+        });
+        results.push(updated);
+      }
+      return results;
+    });
+
+    return res.status(200).json(
+      new ApiResponse(200, "Product prices updated successfully", {
+        prices: updates,
+      })
+    );
+  }
+
+  // Single update path (existing behaviour)
+  if (!req.body || Object.keys(req.body).length === 0) {
+    throw new ApiError(400, "Request body is empty");
+  }
+
+  const priceIdNum = Number.parseInt((req.params.priceId ?? "").toString(), 10);
+  if (!Number.isInteger(priceIdNum) || priceIdNum <= 0) {
+    throw new ApiError(400, "Invalid priceId");
+  }
+
   const payload = updateStockAndPriceSchema.parse(req.body);
 
-  const pricing = prisma.productPrice.update({
+  const pricing = await prisma.productPrice.update({
     where: {
-      id: parseInt(priceId),
+      id: priceIdNum,
       shopProduct: { shopkeeper: { userId: req.user.id } },
     },
     data: {
-      stock: payload.stock,
-      price: payload.price,
-      discount: payload.discount,
-      weight: payload.weight,
+      stock: Number(payload.stock),
+      price: Number(payload.price),
+      discount: Number(payload.discount),
+      weight: Number(payload.weight),
       unit: payload.unit,
     },
   });
-
-  if (!pricing) {
-    throw new ApiError(500, "Failed to update product stock and price");
-  }
 
   return res.status(200).json(
     new ApiResponse(200, "Product stock and price updated successfully", {
