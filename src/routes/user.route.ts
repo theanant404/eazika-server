@@ -26,6 +26,7 @@ userRoute.patch("/update-user", user.updateCurrentUser);
 userRoute.patch("/update-profile-picture", user.updateProfilePicture);
 
 // Address Management (for delivery)
+userRoute.get("/addresses", user.getAddresses);  // Added: Get all addresses
 userRoute.post("/add-new-address", user.addNewAddress);
 userRoute.patch("/update-address/:addressId", user.updateAddress);
 userRoute.delete("/delete-address/:addressId", user.deleteAddress);

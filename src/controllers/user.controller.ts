@@ -336,6 +336,24 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
     );
 });
 
+const getAddresses = asyncHandler(async (req, res) => {
+  // Get all addresses for the current user
+  const userId = req.user?.id;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  const addresses = await prisma.address.findMany({
+    where: { 
+      userId,
+      isDeleted: false 
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Addresses fetched successfully", addresses)
+  );
+});
+
 const addNewAddress = asyncHandler(async (req, res) => {
   // write a steps to add new address for current user
   // 1. validate input
@@ -434,6 +452,7 @@ export {
   getCurrentUser,
   updateCurrentUser,
   updateProfilePicture,
+  getAddresses,
   addNewAddress,
   updateAddress,
   deleteAddress,
