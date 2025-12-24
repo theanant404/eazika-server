@@ -357,13 +357,18 @@ const addShopProduct = asyncHandler(async (req, res) => {
         brand: payload.brand,
         description: payload.description,
         images: payload.images,
-        prices: { createMany: { data: payload.pricing } },
+        prices: { create: payload.pricing },
       },
+      include: { prices: { select: { id: true } } },
     });
-    console.log("Newly added shop product:", newProduct);
     if (!newProduct) throw new ApiError(500, "Failed to add product");
 
-    return newProduct;
+    const priceIds = newProduct.prices.map((price) => price.id);
+
+    return tx.shopProduct.update({
+      where: { id: newProduct.id },
+      data: { priceIds },
+    });
   });
 
   if (!product) throw new ApiError(500, "Failed to add product");
@@ -669,10 +674,10 @@ const getOrderById = asyncHandler(async (req, res) => {
     driverList:
       order.orderItems.length > 0 && order.status !== "delivered"
         ? order.orderItems[0].product.shopkeeper.deliveryBoys.map((db) => ({
-            id: db.user.id,
-            name: db.user.name,
-            phone: db.user.phone,
-          }))
+          id: db.user.id,
+          name: db.user.name,
+          phone: db.user.phone,
+        }))
         : [],
   };
 
