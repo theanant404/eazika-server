@@ -231,7 +231,7 @@ const getShopProducts = asyncHandler(async (req, res) => {
       };
     }
   });
-  console.log("Filtered shop products:", filteredProducts);
+  // console.log("Filtered shop products:", filteredProducts);
 
   return res.status(200).json(
     new ApiResponse(200, "Products fetched successfully", {
