@@ -2,7 +2,7 @@
 CREATE TYPE "Role" AS ENUM ('user', 'shopkeeper', 'delivery_boy', 'admin');
 
 -- CreateEnum
-CREATE TYPE "ShopCategory" AS ENUM ('grocery', 'electronics', 'furniture', 'clothing', 'bakery', 'hmoeAppliances', 'others');
+CREATE TYPE "ShopCategory" AS ENUM ('grocery', 'electronics', 'furniture', 'clothing', 'bakery', 'homeAppliances', 'others');
 
 -- CreateEnum
 CREATE TYPE "OrderStatus" AS ENUM ('pending', 'confirmed', 'shipped', 'delivered', 'cancelled');
@@ -63,8 +63,9 @@ CREATE TABLE "addresses" (
 CREATE TABLE "shopkeepers" (
     "id" SERIAL NOT NULL,
     "user_id" INTEGER NOT NULL,
+    "address_id" INTEGER NOT NULL,
     "document_id" INTEGER NOT NULL,
-    "bank_detail_id" INTEGER NOT NULL,
+    "bank_detail_id" INTEGER,
     "shop_name" TEXT NOT NULL,
     "shop_category" "ShopCategory" NOT NULL,
     "shop_images" TEXT[],
@@ -90,6 +91,11 @@ CREATE TABLE "delivery_boys" (
     "vehicle_owner_name" TEXT NOT NULL,
     "vehicle_name" TEXT,
     "vehicle_no" TEXT NOT NULL,
+    "current_lat" DOUBLE PRECISION,
+    "current_lng" DOUBLE PRECISION,
+    "is_available" BOOLEAN NOT NULL DEFAULT true,
+    "is_verified" BOOLEAN NOT NULL DEFAULT false,
+    "last_location_update" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -148,6 +154,7 @@ CREATE TABLE "global_products" (
     "description" TEXT,
     "images" TEXT[],
     "product_pricing" INTEGER[],
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -353,10 +360,13 @@ ALTER TABLE "addresses" ADD CONSTRAINT "addresses_user_id_fkey" FOREIGN KEY ("us
 ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_address_id_fkey" FOREIGN KEY ("address_id") REFERENCES "addresses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "shopkeeper_documents"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_bank_detail_id_fkey" FOREIGN KEY ("bank_detail_id") REFERENCES "bank_details"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_bank_detail_id_fkey" FOREIGN KEY ("bank_detail_id") REFERENCES "bank_details"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "delivery_boys" ADD CONSTRAINT "delivery_boys_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
