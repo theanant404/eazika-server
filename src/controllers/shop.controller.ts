@@ -378,7 +378,55 @@ const addShopProduct = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, "Product added successfully", product));
 });
+const addShopProductFromGlobleProduct = asyncHandler(async (req, res) => {
+  // Accepts { product: {...}, pricing: [...] } in body
+  const { product, pricing } = req.body;
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  if (!product || !product.id || !Array.isArray(pricing) || pricing.length === 0) {
+    throw new ApiError(400, "Invalid payload: product and pricing required");
+  }
 
+  const createdProduct = await prisma.$transaction(async (tx) => {
+    const shopkeeper = await tx.shopkeeper.findUnique({
+      where: { userId: Number(req.user?.id) },
+      select: { id: true },
+    });
+    if (!shopkeeper) throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
+
+    // Check global product exists
+    const globalProduct = await tx.globalProduct.findUnique({
+      where: { id: product.id },
+      select: { id: true },
+    });
+    if (!globalProduct) throw new ApiError(404, "Global product not found");
+    console.log('Global product found:', globalProduct);
+    // Create shop product with globalProductId and pricing
+    const newProduct = await tx.shopProduct.create({
+      data: {
+        shopkeeperId: shopkeeper.id,
+        productCategoryId: globalProduct.id,
+        isGlobalProduct: true,
+        globalProductId: globalProduct.id,
+        prices: { create: pricing },
+      },
+      include: { prices: { select: { id: true } } },
+    });
+    if (!newProduct) throw new ApiError(500, "Failed to add product");
+
+    const priceIds = newProduct.prices.map((price) => price.id);
+
+    // Update shopProduct with priceIds
+    return tx.shopProduct.update({
+      where: { id: newProduct.id },
+      data: { priceIds },
+      include: { prices: true },
+    });
+  });
+
+  if (!createdProduct) throw new ApiError(500, "Failed to add product");
+
+  return res.status(201).json(new ApiResponse(201, "Product added successfully", createdProduct));
+});
 const addShopGlobalProduct = asyncHandler(async (req, res) => {
   // write steps to add a new product to shop linked to global product
   // 1. Validate request body using shopProductSchema
@@ -1044,6 +1092,7 @@ export {
   addShopProduct,
   updateShopProduct,
   updateStockAndPrice,
+  addShopProductFromGlobleProduct
 };
 // Order Management Controllers
 export { getCurrentOrders, getOrderById, updateOrderStatus };
