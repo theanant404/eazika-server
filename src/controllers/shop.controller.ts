@@ -253,13 +253,6 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
     prisma.globalProduct.findMany({
       include: {
         productCategories: true,
-        prices: {
-          select: {
-            id: true,
-            price: true,
-            discount: true,
-          },
-        },
       },
       skip,
       take: itemsPerPage,
@@ -274,7 +267,6 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
     name: p.name,
     description: p.description,
     images: p.images,
-    pricing: p.prices,
   }));
 
   return res.status(200).json(
