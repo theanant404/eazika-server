@@ -9,8 +9,7 @@ export class ApiResponse<T = unknown> {
   constructor(statusCode: number, message = "Success", data?: T) {
     if (env.isNodeEnvDevelopment)
       console.log(
-        `ApiResponse : ${statusCode}, Message: ${message}, 
-        and data: ${JSON.stringify(data)}`
+        `ApiResponse : ${statusCode}, Message: ${message},`
       );
 
     this.statusCode = statusCode;
