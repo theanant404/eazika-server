@@ -252,7 +252,7 @@ model GlobalProduct {
   name              String
   description       String?
   images            String[]
-  priceIds          Int[]    @map("product_pricing")
+  // priceIds          Int[]    @map("product_pricing")
   isActive          Boolean  @default(true) @map("is_active")
 
   // Timestamps
@@ -260,9 +260,10 @@ model GlobalProduct {
   updatedAt DateTime @updatedAt
 
   // Relations
-  prices            ProductPrice[]
+  // prices            ProductPrice[]
   shopProducts      ShopProduct[]
   productCategories ProductCategory @relation(fields: [productCategoryId], references: [id])
+  productPrices     ProductPrice[]
 
   @@map("global_products")
 }

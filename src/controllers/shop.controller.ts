@@ -168,19 +168,29 @@ const getShopProducts = asyncHandler(async (req, res) => {
   // 2. Fetch products from DB with pagination
   // 3. Return products with pagination info
 
-  const pagination =
-    (req.query.pagination as {
-      currentPage: string;
-      itemsPerPage: string;
-    }) || {};
-  // console.log(pagination)
-  const currentPage = parseInt(pagination.currentPage || "1");
-  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const currentPageRaw = parseInt(
+    (req.query["pagination[currentPage]"] as string) ||
+      (req.query.currentPage as string) ||
+      (req.query.page as string) ||
+      "1",
+    10
+  );
+  const itemsPerPageRaw = parseInt(
+    (req.query["pagination[itemsPerPage]"] as string) ||
+      (req.query.itemsPerPage as string) ||
+      (req.query.limit as string) ||
+      "10",
+    10
+  );
+  const currentPage = Number.isFinite(currentPageRaw) && currentPageRaw > 0 ? currentPageRaw : 1;
+  const itemsPerPage = Number.isFinite(itemsPerPageRaw) && itemsPerPageRaw > 0 ? itemsPerPageRaw : 10;
   const skip = (currentPage - 1) * itemsPerPage;
+
+  const baseWhere = { shopkeeper: { userId: req.user!.id }, isActive: true };
 
   const [products, totalCount] = await prisma.$transaction([
     prisma.shopProduct.findMany({
-      where: { shopkeeper: { userId: req.user!.id } },
+      where: baseWhere,
       include: {
         prices: {
           select: {
@@ -199,7 +209,7 @@ const getShopProducts = asyncHandler(async (req, res) => {
       take: itemsPerPage,
     }),
     prisma.shopProduct.count({
-      where: { isActive: true },
+      where: baseWhere,
     }),
   ]);
 
