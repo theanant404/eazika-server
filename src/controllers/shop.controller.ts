@@ -173,6 +173,7 @@ const getShopProducts = asyncHandler(async (req, res) => {
       currentPage: string;
       itemsPerPage: string;
     }) || {};
+  // console.log(pagination)
   const currentPage = parseInt(pagination.currentPage || "1");
   const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
   const skip = (currentPage - 1) * itemsPerPage;
@@ -318,7 +319,6 @@ const addShopProduct = asyncHandler(async (req, res) => {
   // 3. Return created product
 
   const payload = shopProductSchema.parse(req.body);
-
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const product = await prisma.$transaction(async (tx) => {
