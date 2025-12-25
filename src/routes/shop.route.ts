@@ -14,10 +14,10 @@ router.get("/get-all-categories", shop.getShopCategories);
 router.use("/products", isShopkeeper, product); // all product routes require shopkeeper authentication
 product.get("/get-all-categories", shop.getShopCategories);
 product.post("/add-shop-product", shop.addShopProduct);
-product.post("/add-shop-global-product", shop.addShopProductFromGlobleProduct);
+// product.post("/add-shop-product-from-global-catalog", shop.addShopProductFromGlobleProduct);
 product.get("/get-all-product", shop.getShopProducts);
 product.get("/get-all-global-product", shop.getGlobalProducts);
-// product.post("/add-shop-global-product", shop.addShopGlobalProduct);
+product.post("/add-shop-product-from-global-catalog", shop.addShopGlobalProduct);
 product.put(
   "/update-shop-product-stock-and-price",
   shop.updateStockAndPrice

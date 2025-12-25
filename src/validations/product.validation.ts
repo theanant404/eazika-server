@@ -88,7 +88,7 @@ export const shopProductSchema = zod.object({
 });
 
 export const shopWithGlobalProductSchema = zod.object({
-  productCategoryId: zod.number().int("Product category ID must be an integer"),
+  // productCategoryId: zod.number().int("Product category ID must be an integer"),
   globalProductId: zod.number().int("Global Product ID must be an integer"),
   pricing: zod
     .array(

@@ -435,7 +435,7 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
   // 4. Return created product
 
   const payload = shopWithGlobalProductSchema.parse(req.body);
-
+  console.log('Payload for adding globle pducts:', payload)
   const product = await prisma.$transaction(
     async (tx: Prisma.TransactionClient) => {
       const shopkeeper = await tx.shopkeeper.findUnique({
@@ -457,7 +457,7 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
       const newProduct = await tx.shopProduct.create({
         data: {
           shopkeeperId: shopkeeper.id,
-          productCategoryId: payload.productCategoryId,
+          productCategoryId: globalProduct.productCategoryId,
           isGlobalProduct: true,
           globalProductId: payload.globalProductId,
           prices: { createMany: { data: payload.pricing } },
