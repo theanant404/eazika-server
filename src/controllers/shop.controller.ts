@@ -214,6 +214,7 @@ const getShopProducts = asyncHandler(async (req, res) => {
       images: p.images,
       pricing: p.prices,
       isActive: p.isActive,
+      globalProductId: p.globalProductId,
     };
 
   });
