@@ -251,6 +251,7 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
   // 1. Parse pagination params from query
   // 2. Fetch global products from DB with pagination
   // 3. Return products with pagination info
+  console.log('api successfully hiied!')
   const pagination =
     (req.query.pagination as {
       currentPage: string;

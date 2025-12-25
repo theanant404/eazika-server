@@ -35,8 +35,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
   // Serialize BigInt to Number for JSON response
   const sanitizedCityStats = cityStats.map((stat: any) => ({
-      city: stat.city,
-      orderCount: Number(stat.orderCount)
+    city: stat.city,
+    orderCount: Number(stat.orderCount)
   }));
 
 
@@ -61,7 +61,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   const revenueMap: Record<string, number> = {
     'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
   };
-  
+
   const ordersMap: Record<string, number> = {
     'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
   };
@@ -106,8 +106,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     pendingShopApprovals: pendingShops,
     totalSales: revenueAgg._sum.totalAmount || 0,
     riders: {
-        total: totalRiders,
-        active: activeRiders
+      total: totalRiders,
+      active: activeRiders
     },
     topCities: sanitizedCityStats,
     revenueTrend,
@@ -132,8 +132,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
         name: true,
         email: true,
         role: true,
-        phone: true,      
-        isActive: true,   
+        phone: true,
+        isActive: true,
         createdAt: true,
       },
     }),
@@ -162,9 +162,9 @@ const getAllShops = asyncHandler(async (req, res) => {
   const whereClause: any = {};
   if (status && status !== 'all') {
     if (status === 'active') {
-        whereClause.isActive = true;
+      whereClause.isActive = true;
     } else if (status === 'pending' || status === 'rejected') {
-        whereClause.isActive = false;
+      whereClause.isActive = false;
     }
   }
 
@@ -179,8 +179,8 @@ const getAllShops = asyncHandler(async (req, res) => {
   });
 
   const formattedShops = shops.map(shop => ({
-      ...shop,
-      status: shop.isActive ? 'active' : 'pending' // Simple mapping for now
+    ...shop,
+    status: shop.isActive ? 'active' : 'pending' // Simple mapping for now
   }));
 
   res.status(200).json(new ApiResponse(200, "Shops fetched successfully", formattedShops));
@@ -196,8 +196,8 @@ const verifyShop = asyncHandler(async (req, res) => {
 
   const shop = await prisma.shopkeeper.update({
     where: { id: Number(shopId) },
-    data: { 
-        isActive: status === 'active'
+    data: {
+      isActive: status === 'active'
     }
   });
 
@@ -214,8 +214,8 @@ const toggleShopStatus = asyncHandler(async (req, res) => {
 
   const shop = await prisma.shopkeeper.update({
     where: { id: Number(shopId) },
-    data: { 
-        isActive: isActive
+    data: {
+      isActive: isActive
     }
   });
 
@@ -224,80 +224,80 @@ const toggleShopStatus = asyncHandler(async (req, res) => {
 
 /* ################ Riders Management ################ */
 const getAllRiders = asyncHandler(async (req, res) => {
-    const riders = await prisma.deliveryBoy.findMany({
-        include: {
-            user: { select: { name: true, phone: true, email: true } },
-            _count: {
-                select: { orders: { where: { status: 'delivered' } } }
-            }
-        }
-    });
+  const riders = await prisma.deliveryBoy.findMany({
+    include: {
+      user: { select: { name: true, phone: true, email: true } },
+      _count: {
+        select: { orders: { where: { status: 'delivered' } } }
+      }
+    }
+  });
 
-    const formattedRiders = riders.map(rider => ({
-        ...rider,
-        name: rider.user.name,
-        phone: rider.user.phone,
-        email: rider.user.email,
-        status: rider.isAvailable ? 'available' : 'busy',
-        totalDeliveries: rider._count.orders,
-        rating: 4.8 // Mock rating as it is not in schema yet
-    }));
+  const formattedRiders = riders.map(rider => ({
+    ...rider,
+    name: rider.user.name,
+    phone: rider.user.phone,
+    email: rider.user.email,
+    status: rider.isAvailable ? 'available' : 'busy',
+    totalDeliveries: rider._count.orders,
+    rating: 4.8 // Mock rating as it is not in schema yet
+  }));
 
-    res.status(200).json(new ApiResponse(200, "Riders fetched successfully", formattedRiders));
+  res.status(200).json(new ApiResponse(200, "Riders fetched successfully", formattedRiders));
 });
 
 
 
 /* ################ Orders Management ################ */
 const getAllOrders = asyncHandler(async (req, res) => {
-    const orders = await prisma.order.findMany({
+  const orders = await prisma.order.findMany({
+    include: {
+      user: { select: { name: true } },
+      orderItems: { // Access shop via OrderItem -> ShopProduct -> Shopkeeper -> User (Shop Name)
         include: {
-            user: { select: { name: true } },
-            orderItems: { // Access shop via OrderItem -> ShopProduct -> Shopkeeper -> User (Shop Name)
+          product: {
+            include: {
+              shopkeeper: {
                 include: {
-                    product: {
-                        include: {
-                            shopkeeper: {
-                                include: {
-                                    user: { select: { name: true } } // shop owner name
-                                }
-                            }
-                        }
-                    }
-                },
-
-            },
-            deliveryBoy: {
-                include: {
-                    user: { select: { name: true } }
+                  user: { select: { name: true } } // shop owner name
                 }
+              }
             }
+          }
         },
-        orderBy: { createdAt: 'desc' }
-    });
 
-    const formattedOrders = orders.map(order => {
-        // Extract shop name from first item's product
-        const shopName = order.orderItems[0]?.product?.shopkeeper?.shopName || "Unknown Shop";
-        
-        return {
-            id: `#ORD-${order.id}`,
-            customer: order.user.name,
-            shop: shopName,
-            rider: order.deliveryBoy?.user.name || null,
-            amount: `₹${order.totalAmount}`,
-            status: order.status,
-            date: order.createdAt.toLocaleDateString(),
-            rawDate: order.createdAt,
-            items: order.orderItems.map(item => ({
-                name: item.product.name,
-                qty: item.quantity,
-                price: `₹${item.price}`
-            }))
-        };
-    });
+      },
+      deliveryBoy: {
+        include: {
+          user: { select: { name: true } }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
 
-    res.status(200).json(new ApiResponse(200, "Orders fetched successfully", formattedOrders));
+  const formattedOrders = orders.map(order => {
+    // Extract shop name from first item's product
+    const shopName = order.orderItems[0]?.product?.shopkeeper?.shopName || "Unknown Shop";
+
+    return {
+      id: `#ORD-${order.id}`,
+      customer: order.user.name,
+      shop: shopName,
+      rider: order.deliveryBoy?.user.name || null,
+      amount: `₹${order.totalAmount}`,
+      status: order.status,
+      date: order.createdAt.toLocaleDateString(),
+      rawDate: order.createdAt,
+      items: order.orderItems.map(item => ({
+        name: item.product.name,
+        qty: item.quantity,
+        price: `₹${item.price}`
+      }))
+    };
+  });
+
+  res.status(200).json(new ApiResponse(200, "Orders fetched successfully", formattedOrders));
 });
 /* ################ Products Controllers ################ */
 const createProductCategory = asyncHandler(async (req, res) => {
@@ -421,7 +421,7 @@ const getAllGlobalProducts = asyncHandler(async (req, res) => {
     }),
     prisma.globalProduct.count({ where: whereClause }),
   ]);
-
+  // console.log(products)
   res.status(200).json(
     new ApiResponse(200, "Global products fetched successfully", {
       products,
@@ -573,63 +573,63 @@ const getLiveMapData = asyncHandler(async (req, res) => {
         shopName: true,
         shopCategory: true,
         user: {
-            select: {
-                name: true,
-                phone: true,
-                address: {
-                    where: { isDeleted: false },
-                    take: 1 
-                }
+          select: {
+            name: true,
+            phone: true,
+            address: {
+              where: { isDeleted: false },
+              take: 1
             }
+          }
         }
       }
     }),
     prisma.deliveryBoy.findMany({
-        select: {
-            id: true,
-            currentLat: true,
-            currentLng: true,
-            isAvailable: true,
-            user: { select: { name: true, phone: true } }
-        }
+      select: {
+        id: true,
+        currentLat: true,
+        currentLng: true,
+        isAvailable: true,
+        user: { select: { name: true, phone: true } }
+      }
     })
   ]);
 
   // Process Shops to extract Coordinates
   const processedShops = shops.map(shop => {
-      // Parse geoLocation string "lat,lng" if available
-      let lat = 0, lng = 0;
-      const addr = shop.user.address[0];
-      if (addr && addr.geoLocation) {
-          const parts = addr.geoLocation.split(',');
-          if (parts.length === 2) {
-              lat = parseFloat(parts[0].trim());
-              lng = parseFloat(parts[1].trim());
-          }
+    // Parse geoLocation string "lat,lng" if available
+    let lat = 0, lng = 0;
+    const addr = shop.user.address[0];
+    if (addr && addr.geoLocation) {
+      const parts = addr.geoLocation.split(',');
+      if (parts.length === 2) {
+        lat = parseFloat(parts[0].trim());
+        lng = parseFloat(parts[1].trim());
       }
-      return {
-          id: shop.id,
-          name: shop.shopName,
-          category: shop.shopCategory,
-          owner: shop.user.name,
-          phone: shop.user.phone,
-          lat,
-          lng,
-          status: 'active'
-      };
+    }
+    return {
+      id: shop.id,
+      name: shop.shopName,
+      category: shop.shopCategory,
+      owner: shop.user.name,
+      phone: shop.user.phone,
+      lat,
+      lng,
+      status: 'active'
+    };
   }).filter(s => s.lat !== 0 && s.lng !== 0); // Only return shops with valid location
 
   const processedRiders = riders.map(rider => ({
-      id: rider.id,
-      name: rider.user.name,
-      phone: rider.user.phone,
-      lat: rider.currentLat || 0,
-      lng: rider.currentLng || 0,
-      status: rider.isAvailable ? 'available' : 'busy' // Simplified status
+    id: rider.id,
+    name: rider.user.name,
+    phone: rider.user.phone,
+    lat: rider.currentLat || 0,
+    lng: rider.currentLng || 0,
+    status: rider.isAvailable ? 'available' : 'busy' // Simplified status
   })).filter(r => r.lat !== 0 && r.lng !== 0);
 
   res.status(200).json(new ApiResponse(200, "Live map data fetched", {
-      shops: processedShops,
-      riders: processedRiders
+    shops: processedShops,
+    riders: processedRiders
   }));
 });
