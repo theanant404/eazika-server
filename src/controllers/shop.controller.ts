@@ -396,7 +396,7 @@ const addShopProductFromGlobleProduct = asyncHandler(async (req, res) => {
     // Check global product exists
     const globalProduct = await tx.globalProduct.findUnique({
       where: { id: product.id },
-      select: { id: true },
+      select: { id: true, productCategoryId: true },
     });
     if (!globalProduct) throw new ApiError(404, "Global product not found");
     console.log('Global product found:', globalProduct);
@@ -404,7 +404,7 @@ const addShopProductFromGlobleProduct = asyncHandler(async (req, res) => {
     const newProduct = await tx.shopProduct.create({
       data: {
         shopkeeperId: shopkeeper.id,
-        productCategoryId: globalProduct.id,
+        productCategoryId: globalProduct.productCategoryId,
         isGlobalProduct: true,
         globalProductId: globalProduct.id,
         prices: { create: pricing },
@@ -485,8 +485,16 @@ const updateShopProduct = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const { productId } = req.params;
-  const { name, description, images, priceIds, isActive } = req.body;
-
+  const {
+    name,
+    brand,
+    description,
+    images,
+    priceIds,
+    isActive,
+    pricing,
+    productCategoryId,
+  } = req.body;
   if (!productId) {
     throw new ApiError(400, "productId is required");
   }
@@ -512,34 +520,75 @@ const updateShopProduct = asyncHandler(async (req, res) => {
   // Prepare update data
   const updateData: any = {};
 
-  if (name) updateData.name = name;
-  if (description !== undefined) updateData.description = description;
-  if (images && Array.isArray(images) && images.length > 0)
-    updateData.images = images;
-
-  // Validate and update priceIds if provided
-  if (priceIds && Array.isArray(priceIds) && priceIds.length > 0) {
-    const prices = await prisma.productPrice.findMany({
-      where: { id: { in: priceIds } },
-    });
-
-    if (prices.length !== priceIds.length) {
-      throw new ApiError(400, "Some product prices not found");
-    }
-
-    updateData.priceIds = priceIds;
-  }
+  const incoming = product || {};
+  if (name || incoming.name) updateData.name = name || incoming.name;
+  if (brand || incoming.brand) updateData.brand = brand || incoming.brand;
+  if (description !== undefined || incoming.description !== undefined)
+    updateData.description = description ?? incoming.description;
+  const incomingImages = images || incoming.images;
+  if (incomingImages && Array.isArray(incomingImages) && incomingImages.length > 0)
+    updateData.images = incomingImages;
+  const categoryIdNum = Number.parseInt((productCategoryId ?? "").toString(), 10);
+  if (Number.isInteger(categoryIdNum) && categoryIdNum > 0)
+    updateData.productCategoryId = categoryIdNum;
 
   if (isActive !== undefined) updateData.isActive = isActive;
 
-  // Update product
-  const updatedProduct = await prisma.shopProduct.update({
-    where: { id: product.id },
-    data: updateData,
-    include: {
-      prices: true,
-      globalProduct: true,
-    },
+  const updatedProduct = await prisma.$transaction(async (tx) => {
+    // Update basic product fields
+    const updated = await tx.shopProduct.update({
+      where: { id: product.id },
+      data: updateData,
+    });
+
+    // Upsert pricing: update when id provided, create when missing
+    const providedPricing = Array.isArray(pricing) ? pricing : [];
+    const collectedPriceIds: number[] = [];
+
+    for (const item of providedPricing) {
+      const idNum = Number.parseInt((item?.id ?? "").toString(), 10);
+      const pricePayload = {
+        price: Number(item.price ?? 0),
+        discount: Number(item.discount ?? 0),
+        weight: Number(item.weight ?? 0),
+        unit: item.unit,
+        stock: Number(item.stock ?? 0),
+      };
+
+      if (Number.isInteger(idNum) && idNum > 0) {
+        const updatedPrice = await tx.productPrice.update({
+          where: {
+            id: idNum,
+            shopProduct: { shopkeeper: { userId: req.user!.id } },
+          },
+          data: pricePayload,
+        });
+        collectedPriceIds.push(updatedPrice.id);
+      } else {
+        const createdPrice = await tx.productPrice.create({
+          data: {
+            ...pricePayload,
+            shopProductId: updated.id,
+          },
+        });
+        collectedPriceIds.push(createdPrice.id);
+      }
+    }
+
+    // If priceIds was provided explicitly, merge/override
+    if (Array.isArray(priceIds) && priceIds.length > 0) {
+      collectedPriceIds.push(
+        ...priceIds.filter((id: any) => Number.isInteger(Number(id))).map((id: any) => Number(id))
+      );
+    }
+
+    const finalPriceIds = collectedPriceIds.length > 0 ? Array.from(new Set(collectedPriceIds)) : updated.priceIds;
+
+    return tx.shopProduct.update({
+      where: { id: updated.id },
+      data: { priceIds: finalPriceIds },
+      include: { prices: true, globalProduct: false },
+    });
   });
 
   return res
