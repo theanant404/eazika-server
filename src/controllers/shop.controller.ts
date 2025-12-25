@@ -415,51 +415,53 @@ const addShopProductFromGlobleProduct = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(201, "Product added successfully", createdProduct));
 });
 const addShopGlobalProduct = asyncHandler(async (req, res) => {
-  // write steps to add a new product to shop linked to global product
-  // 1. Validate request body using shopProductSchema
-  // 2. Check if global product exists
-  // 3. Create shop product entry in DB linked to global product
-  // 4. Return created product
+  // Accepts { globalProductId, pricing: [...] }
+  const { globalProductId, pricing } = req.body;
 
-  const payload = shopWithGlobalProductSchema.parse(req.body);
-  console.log('Payload for adding globle pducts:', payload)
-  const product = await prisma.$transaction(
-    async (tx: Prisma.TransactionClient) => {
-      const shopkeeper = await tx.shopkeeper.findUnique({
-        where: { userId: req.user!.id },
-        select: { id: true },
-      });
-      if (!shopkeeper)
-        throw new ApiError(
-          404,
-          "Unauthorized access, only shopkeepers allowed"
-        );
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  if (!globalProductId || !Array.isArray(pricing) || pricing.length === 0) {
+    throw new ApiError(400, "Invalid payload: globalProductId and pricing required");
+  }
 
-      // Check if global product exists
-      const globalProduct = await tx.globalProduct.findUnique({
-        where: { id: payload.globalProductId },
-      });
-      if (!globalProduct) throw new ApiError(404, "Global product not found");
+  const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const shopkeeper = await tx.shopkeeper.findUnique({
+      where: { userId: req.user!.id },
+      select: { id: true },
+    });
+    if (!shopkeeper)
+      throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
 
-      const newProduct = await tx.shopProduct.create({
-        data: {
-          shopkeeperId: shopkeeper.id,
-          productCategoryId: globalProduct.productCategoryId,
-          isGlobalProduct: true,
-          globalProductId: payload.globalProductId,
-          prices: { createMany: { data: payload.pricing } },
-        },
-        include: {
-          prices: true,
-          globalProduct: true,
-          productCategories: true,
-        },
-      });
-      if (!newProduct) throw new ApiError(500, "Failed to add product");
+    const globalProduct = await tx.globalProduct.findUnique({
+      where: { id: globalProductId },
+      select: { id: true, productCategoryId: true, name: true, brand: true, description: true, images: true },
+    });
+    if (!globalProduct) throw new ApiError(404, "Global product not found");
+    console.log('Global product found:', globalProduct);
+    // Create shop product and nested prices to get price ids
+    const newProduct = await tx.shopProduct.create({
+      data: {
+        shopkeeperId: shopkeeper.id,
+        productCategoryId: globalProduct.productCategoryId,
+        isGlobalProduct: true,
+        globalProductId: globalProduct.id,
+        name: globalProduct.name,
+        brand: globalProduct.brand,
+        description: globalProduct.description,
+        images: globalProduct.images,
+        prices: { create: pricing.map(({ id, globalProductId: _gp, ...rest }: any) => rest) },
+      },
+      include: { prices: { select: { id: true } }, globalProduct: true, productCategories: true },
+    });
+    if (!newProduct) throw new ApiError(500, "Failed to add product");
 
-      return newProduct;
-    }
-  );
+    const priceIds = newProduct.prices.map((p) => p.id);
+
+    return tx.shopProduct.update({
+      where: { id: newProduct.id },
+      data: { priceIds },
+      include: { prices: true, globalProduct: true, productCategories: true },
+    });
+  });
 
   if (!product) throw new ApiError(500, "Failed to add product");
 
