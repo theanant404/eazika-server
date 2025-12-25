@@ -203,33 +203,19 @@ const getShopProducts = asyncHandler(async (req, res) => {
   ]);
 
   const filteredProducts = products.map((p) => {
-    const isGlobal = p.isGlobalProduct;
-    if (isGlobal) {
-      return {
-        id: p.id,
-        isGlobalProduct: p.isGlobalProduct,
-        category: p.productCategories.name,
-        globalProductId: p.globalProductId,
-        brand: p.globalProduct?.brand,
-        name: p.globalProduct?.name,
-        description: p.globalProduct?.description,
-        images: p.globalProduct?.images,
-        pricing: p.prices,
-        isActive: p.isActive,
-      };
-    } else {
-      return {
-        id: p.id,
-        isGlobalProduct: p.isGlobalProduct,
-        category: p.productCategories.name,
-        brand: p.brand,
-        name: p.name,
-        description: p.description,
-        images: p.images,
-        pricing: p.prices,
-        isActive: p.isActive,
-      };
-    }
+
+    return {
+      id: p.id,
+      isGlobalProduct: p.isGlobalProduct,
+      category: p.productCategories.name,
+      brand: p.brand,
+      name: p.name,
+      description: p.description,
+      images: p.images,
+      pricing: p.prices,
+      isActive: p.isActive,
+    };
+
   });
   // console.log("Filtered shop products:", filteredProducts);
 
