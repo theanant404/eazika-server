@@ -336,7 +336,7 @@ const createGlobalProduct = asyncHandler(async (req, res) => {
       brand: validatedData.brand,
       description: validatedData.description,
       images: validatedData.images,
-      prices: { createMany: { data: validatedData.pricing } },
+      // prices: { createMany: { data: validatedData.pricing } },
     },
   });
   res.status(201).json(
@@ -358,7 +358,7 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
           brand: product.brand,
           description: product.description,
           images: product.images,
-          prices: { createMany: { data: product.pricing } },
+          // prices: { createMany: { data: product.pricing } },
         },
       })
     )

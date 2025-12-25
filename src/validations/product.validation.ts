@@ -18,28 +18,28 @@ export const globalProductSchema = zod.object({
   images: zod
     .array(zod.string().url("Each product image must be a valid URL"))
     .min(1, "At least one product image is required"),
-  pricing: zod
-    .array(
-      zod.object({
-        price: zod.number().positive("Price must be a positive number"),
-        discount: zod
-          .number()
-          .min(0, "Discount cannot be negative")
-          .max(100, "Discount cannot exceed 100%"),
-        weight: zod.number().positive("Weight must be a positive number"),
-        stock: zod
-          .number()
-          .int("Stock must be an integer")
-          .min(0, "Stock cannot be negative")
-          .optional(),
-        unit: zod
-          .enum(["grams", "kg", "ml", "litre", "piece"])
-          .default("grams"),
-        globalProductId: zod.number().optional(),
-        shopProductId: zod.number().optional(),
-      })
-    )
-    .min(1, "At least one pricing option is required"),
+  // pricing: zod
+  //   .array(
+  //     zod.object({
+  //       price: zod.number().positive("Price must be a positive number"),
+  //       discount: zod
+  //         .number()
+  //         .min(0, "Discount cannot be negative")
+  //         .max(100, "Discount cannot exceed 100%"),
+  //       weight: zod.number().positive("Weight must be a positive number"),
+  //       stock: zod
+  //         .number()
+  //         .int("Stock must be an integer")
+  //         .min(0, "Stock cannot be negative")
+  //         .optional(),
+  //       unit: zod
+  //         .enum(["grams", "kg", "ml", "litre", "piece"])
+  //         .default("grams"),
+  //       globalProductId: zod.number().optional(),
+  //       shopProductId: zod.number().optional(),
+  //     })
+  //   )
+  //   .min(1, "At least one pricing option is required"),
 });
 
 export const globalProductsSchema = zod.array(globalProductSchema);
