@@ -416,7 +416,6 @@ const getAllGlobalProducts = asyncHandler(async (req, res) => {
       orderBy: { createdAt: "desc" },
       include: {
         productCategories: true,
-        prices: true,
       },
     }),
     prisma.globalProduct.count({ where: whereClause }),
@@ -489,7 +488,7 @@ const getGlobalProductById = asyncHandler(async (req, res) => {
     where: { id: Number(id) },
     include: {
       productCategories: true,
-      prices: true,
+      productPrices: true,
     },
   });
 

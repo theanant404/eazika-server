@@ -54,17 +54,6 @@ async function main() {
         continue;
       }
 
-      const pricing = await tx.productPrice.createManyAndReturn({
-        data: product.pricing,
-        select: { id: true },
-      });
-      if (pricing.length === 0) {
-        console.warn(
-          `⚠️  Skipping product "${product.name}": Failed to create pricing options`
-        );
-        continue;
-      }
-
       await tx.globalProduct.create({
         data: {
           productCategoryId: category.id,
@@ -72,7 +61,16 @@ async function main() {
           name: product.name,
           description: product.description,
           images: product.images,
-          priceIds: pricing.map((p) => p.id),
+          productPrices: {
+            create: product.pricing.map((p) => ({
+              price: p.price,
+              stock: p.stock,
+              weight: p.weight,
+              discount: p.discount ?? 0,
+              currency: (p as any).currency ?? undefined,
+              unit: (p as any).unit ?? undefined,
+            })),
+          },
         },
       });
 

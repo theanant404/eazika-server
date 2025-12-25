@@ -3,7 +3,6 @@ import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
 import { createOrderSchema } from "../validations/product.validation";
 import { Prisma } from "../generated/prisma/client";
-import { is } from "zod/v4/locales";
 
 /* ================================= Customer Products Controllers ============================ */
 
@@ -73,7 +72,7 @@ const getProducts = asyncHandler(async (req, res) => {
       },
       globalProduct: {
         include: {
-          prices: {
+          productPrices: {
             select: {
               id: true,
               price: true,
@@ -95,10 +94,10 @@ const getProducts = asyncHandler(async (req, res) => {
     const isGlobal = p.isGlobalProduct;
     // Use shop-specific prices if available, otherwise fallback to global product prices
     const prices =
-      p.prices && p.prices.length > 0
+      p.prices?.length
         ? p.prices
-        : isGlobal && p.globalProduct?.prices
-          ? p.globalProduct.prices
+        : isGlobal && p.globalProduct?.productPrices?.length
+          ? p.globalProduct.productPrices
           : [];
 
     return {
@@ -162,7 +161,7 @@ const getProductById = asyncHandler(async (req, res) => {
   }
 
   // Fetch product by ID
-  const product = await prisma.shopProduct.findUnique({
+  const product = await prisma.shopProduct.findFirst({
     where: { id: parseInt(productId), isActive: true },
     include: {
       prices: {
@@ -239,23 +238,26 @@ const getProductById = asyncHandler(async (req, res) => {
 
 const addToCart = asyncHandler(async (req, res) => {
   const { productId, priceId, quantity } = req.body;
+  const productIdNum = Number(productId);
+  const priceIdNum = Number(priceId);
+  const quantityNum = Number(quantity);
   // console.log("productId:", productId, "priceId:", priceId, "quantity:", quantity);
 
   // Validate inputs
-  if (!(productId || priceId || parseInt(quantity) < 0))
+  if (!productIdNum || !priceIdNum || quantityNum <= 0)
     throw new ApiError(400, "productId, priceId and quantity are required");
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const item = await prisma.$transaction(
     async (tx: Prisma.TransactionClient) => {
-      const product = await tx.shopProduct.findUnique({
+      const product = await tx.shopProduct.findFirst({
         where: {
-          id: productId,
+          id: productIdNum,
           isActive: true,
         },
         include: {
-          prices: { where: { id: priceId } },
+          prices: { where: { id: priceIdNum } },
         },
       });
 
@@ -265,15 +267,15 @@ const addToCart = asyncHandler(async (req, res) => {
       const existingItem = await tx.cartItem.findFirst({
         where: {
           userId: req.user!.id,
-          shopProductId: productId,
-          productPriceId: priceId,
+          shopProductId: productIdNum,
+          productPriceId: priceIdNum,
         },
       });
 
       if (existingItem) {
         return tx.cartItem.update({
           where: { id: existingItem.id },
-          data: { quantity: existingItem.quantity + parseInt(quantity) },
+          data: { quantity: existingItem.quantity + quantityNum },
           include: { productPrice: true, shopProduct: true },
         });
       }
@@ -281,9 +283,9 @@ const addToCart = asyncHandler(async (req, res) => {
       return tx.cartItem.create({
         data: {
           userId: req.user?.id!,
-          shopProductId: productId,
-          productPriceId: priceId,
-          quantity: quantity,
+          shopProductId: productIdNum,
+          productPriceId: priceIdNum,
+          quantity: quantityNum,
         },
         include: {
           productPrice: true,
@@ -342,13 +344,22 @@ const updateCartItem = asyncHandler(async (req, res) => {
   const { itemId } = req.params;
   const { quantity } = req.body;
 
-  if (!itemId) throw new ApiError(400, "itemId is required");
-  if (parseInt(quantity) < 0)
+  const itemIdNum = Number(itemId);
+  const quantityNum = Number(quantity);
+
+  if (!itemIdNum) throw new ApiError(400, "itemId is required");
+  if (quantityNum <= 0)
     throw new ApiError(400, "quantity must be a positive integer");
 
+  const existing = await prisma.cartItem.findFirst({
+    where: { id: itemIdNum, userId: req.user?.id },
+  });
+
+  if (!existing) throw new ApiError(404, "Cart item not found");
+
   const cartItem = await prisma.cartItem.update({
-    where: { id: parseInt(itemId), userId: req.user?.id },
-    data: { quantity: parseInt(quantity) },
+    where: { id: existing.id },
+    data: { quantity: quantityNum },
   });
 
   if (!cartItem) throw new ApiError(500, "Failed to update cart item");
@@ -599,13 +610,13 @@ const trackOrder = asyncHandler(async (req, res) => {
     updatedAt: order.updatedAt,
     deliveryBoy: order.deliveryBoy
       ? {
-          id: order.deliveryBoy.id,
-          name: order.deliveryBoy.user.name,
-          phone: order.deliveryBoy.user.phone,
-          vehicleNo: order.deliveryBoy.vehicleNo,
-          currentLat: order.deliveryBoy.currentLat,
-          currentLng: order.deliveryBoy.currentLng,
-        }
+        id: order.deliveryBoy.id,
+        name: order.deliveryBoy.user.name,
+        phone: order.deliveryBoy.user.phone,
+        vehicleNo: order.deliveryBoy.vehicleNo,
+        currentLat: order.deliveryBoy.currentLat,
+        currentLng: order.deliveryBoy.currentLng,
+      }
       : null,
   };
 
