@@ -170,16 +170,16 @@ const getShopProducts = asyncHandler(async (req, res) => {
 
   const currentPageRaw = parseInt(
     (req.query["pagination[currentPage]"] as string) ||
-      (req.query.currentPage as string) ||
-      (req.query.page as string) ||
-      "1",
+    (req.query.currentPage as string) ||
+    (req.query.page as string) ||
+    "1",
     10
   );
   const itemsPerPageRaw = parseInt(
     (req.query["pagination[itemsPerPage]"] as string) ||
-      (req.query.itemsPerPage as string) ||
-      (req.query.limit as string) ||
-      "10",
+    (req.query.itemsPerPage as string) ||
+    (req.query.limit as string) ||
+    "10",
     10
   );
   const currentPage = Number.isFinite(currentPageRaw) && currentPageRaw > 0 ? currentPageRaw : 1;
@@ -532,48 +532,77 @@ const updateShopProduct = asyncHandler(async (req, res) => {
       data: updateData,
     });
 
-    // Upsert pricing: update when id provided, create when missing
-    const providedPricing = Array.isArray(pricing) ? pricing : [];
+    const providedPricing = Array.isArray(pricing) ? pricing : null;
     const collectedPriceIds: number[] = [];
 
-    for (const item of providedPricing) {
-      const idNum = Number.parseInt((item?.id ?? "").toString(), 10);
-      const pricePayload = {
-        price: Number(item.price ?? 0),
-        discount: Number(item.discount ?? 0),
-        weight: Number(item.weight ?? 0),
-        unit: item.unit,
-        stock: Number(item.stock ?? 0),
-      };
+    if (providedPricing) {
+      // Fetch existing price rows to decide which to delete after upserts
+      const existingPrices = await tx.productPrice.findMany({
+        where: {
+          shopProductId: updated.id,
+          shopProduct: { shopkeeper: { userId: req.user!.id } },
+        },
+        select: { id: true },
+      });
 
-      if (Number.isInteger(idNum) && idNum > 0) {
-        const updatedPrice = await tx.productPrice.update({
+      for (const item of providedPricing) {
+        const idNum = Number.parseInt((item?.id ?? "").toString(), 10);
+        const pricePayload = {
+          price: Number(item.price ?? 0),
+          discount: Number(item.discount ?? 0),
+          weight: Number(item.weight ?? 0),
+          unit: item.unit,
+          stock: Number(item.stock ?? 0),
+        };
+
+        if (Number.isInteger(idNum) && idNum > 0) {
+          const updatedPrice = await tx.productPrice.update({
+            where: {
+              id: idNum,
+              shopProduct: { shopkeeper: { userId: req.user!.id } },
+            },
+            data: pricePayload,
+          });
+          collectedPriceIds.push(updatedPrice.id);
+        } else {
+          const createdPrice = await tx.productPrice.create({
+            data: {
+              ...pricePayload,
+              shopProductId: updated.id,
+            },
+          });
+          collectedPriceIds.push(createdPrice.id);
+        }
+      }
+
+      // Remove price rows that are no longer present in the incoming list
+      const incomingSet = new Set(collectedPriceIds);
+      const toDelete = existingPrices
+        .map((p) => p.id)
+        .filter((id) => !incomingSet.has(id));
+
+      if (toDelete.length > 0) {
+        await tx.productPrice.deleteMany({
           where: {
-            id: idNum,
+            id: { in: toDelete },
             shopProduct: { shopkeeper: { userId: req.user!.id } },
           },
-          data: pricePayload,
         });
-        collectedPriceIds.push(updatedPrice.id);
-      } else {
-        const createdPrice = await tx.productPrice.create({
-          data: {
-            ...pricePayload,
-            shopProductId: updated.id,
-          },
-        });
-        collectedPriceIds.push(createdPrice.id);
       }
     }
 
     // If priceIds was provided explicitly, merge/override
     if (Array.isArray(priceIds) && priceIds.length > 0) {
       collectedPriceIds.push(
-        ...priceIds.filter((id: any) => Number.isInteger(Number(id))).map((id: any) => Number(id))
+        ...priceIds
+          .filter((id: any) => Number.isInteger(Number(id)))
+          .map((id: any) => Number(id))
       );
     }
 
-    const finalPriceIds = collectedPriceIds.length > 0 ? Array.from(new Set(collectedPriceIds)) : updated.priceIds;
+    const finalPriceIds = collectedPriceIds.length > 0
+      ? Array.from(new Set(collectedPriceIds))
+      : updated.priceIds;
 
     return tx.shopProduct.update({
       where: { id: updated.id },
