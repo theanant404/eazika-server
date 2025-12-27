@@ -391,6 +391,7 @@ export {
   updateGlobalProduct,
   toggleGlobalProductStatus,
   toggleShopProductStatus,
+  updateProductCategory
 };
 
 /* ################ Product Management ################ */
@@ -632,4 +633,19 @@ const getLiveMapData = asyncHandler(async (req, res) => {
     shops: processedShops,
     riders: processedRiders
   }));
+});
+const updateProductCategory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+
+  if (!name || name.length < 2 || name.length > 100) {
+    throw new ApiError(400, "Product category name must be between 2 and 100 characters long");
+  }
+
+  const updatedCategory = await prisma.productCategory.update({
+    where: { id: Number(id) },
+    data: { name, description },
+  });
+
+  res.status(200).json(new ApiResponse(200, "Product category updated successfully", updatedCategory));
 });

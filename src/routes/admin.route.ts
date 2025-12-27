@@ -24,6 +24,8 @@ router.get("/orders/get-all", adminController.getAllOrders);
 // --------- Product Category Management Routes ---------
 router.get("/products/get-categories", adminController.getAllProductCategories);
 router.post("/products/create-category", adminController.createProductCategory);
+router.put("/products/update-category/:id", adminController.updateProductCategory);
+
 router.post("/products/add-global", adminController.createGlobalProduct);
 
 router.post(
