@@ -27,6 +27,10 @@ product.put(
 );
 // product.delete("/delete-shop-product/:productId", shop.deleteShopProduct);
 product.put("/update-shop-product/:productId", shop.updateShopProduct);
+// Toggle product active status (expects { productId, isActive })
+product.patch("/update-product-status", shop.updateShopProductStatus);
+// Alternate: by param
+product.patch("/update-shop-product-activity/:productId/status", shop.updateShopProductStatus);
 
 // ========== Other Shop Routes ==========
 const order = Router();

@@ -186,7 +186,8 @@ const getShopProducts = asyncHandler(async (req, res) => {
   const itemsPerPage = Number.isFinite(itemsPerPageRaw) && itemsPerPageRaw > 0 ? itemsPerPageRaw : 10;
   const skip = (currentPage - 1) * itemsPerPage;
 
-  const baseWhere = { shopkeeper: { userId: req.user!.id }, isActive: true };
+  // Return all products (active and inactive) for this shopkeeper
+  const baseWhere = { shopkeeper: { userId: req.user!.id } };
 
   const [products, totalCount] = await prisma.$transaction([
     prisma.shopProduct.findMany({
@@ -379,6 +380,44 @@ const addShopProduct = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, "Product added successfully", product));
 });
+const updateShopProductStatus = asyncHandler(async (req, res) => {
+  // Toggle `isActive` on a shop product owned by the authenticated shopkeeper
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const paramProductId = req.params.productId;
+  const bodyProductId = req.body?.productId;
+  const productIdNum = Number.parseInt((paramProductId ?? bodyProductId ?? "").toString(), 10);
+  const isActive = req.body?.isActive;
+
+  if (!Number.isInteger(productIdNum) || productIdNum <= 0) {
+    throw new ApiError(400, "Valid productId is required");
+  }
+  if (typeof isActive !== "boolean") {
+    throw new ApiError(400, "isActive (boolean) is required");
+  }
+
+  // Ensure requester is a shopkeeper
+  const shopkeeper = await prisma.shopkeeper.findUnique({ where: { userId: req.user.id } });
+  if (!shopkeeper) throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
+
+  // Verify product ownership
+  const product = await prisma.shopProduct.findUnique({ where: { id: productIdNum } });
+  if (!product || product.shopkeeperId !== shopkeeper.id) {
+    throw new ApiError(404, "Product not found or unauthorized");
+  }
+
+  const updated = await prisma.shopProduct.update({
+    where: { id: product.id },
+    data: {
+      isActive,
+    },
+    include: { prices: true, globalProduct: true, productCategories: true },
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Product status updated successfully", updated));
+});
 const addShopProductFromGlobleProduct = asyncHandler(async (req, res) => {
   // Accepts { product: {...}, pricing: [...] } in body
   const { product, pricing } = req.body;
@@ -551,22 +590,24 @@ const updateShopProduct = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Product not found or unauthorized");
   }
 
-  // Prepare update data
+  // Prepare update data (restrict for global products)
   const updateData: any = {};
+  const isGlobal = !!product.isGlobalProduct;
 
   const incoming = product || {};
-  if (name || incoming.name) updateData.name = name || incoming.name;
-  if (brand || incoming.brand) updateData.brand = brand || incoming.brand;
-  if (description !== undefined || incoming.description !== undefined)
-    updateData.description = description ?? incoming.description;
-  const incomingImages = images || incoming.images;
-  if (incomingImages && Array.isArray(incomingImages) && incomingImages.length > 0)
-    updateData.images = incomingImages;
-  const categoryIdNum = Number.parseInt((productCategoryId ?? "").toString(), 10);
-  if (Number.isInteger(categoryIdNum) && categoryIdNum > 0)
-    updateData.productCategoryId = categoryIdNum;
-
-  if (isActive !== undefined) updateData.isActive = isActive;
+  if (!isGlobal) {
+    if (name || incoming.name) updateData.name = name || incoming.name;
+    if (brand || incoming.brand) updateData.brand = brand || incoming.brand;
+    if (description !== undefined || incoming.description !== undefined)
+      updateData.description = description ?? incoming.description;
+    const incomingImages = images || incoming.images;
+    if (incomingImages && Array.isArray(incomingImages) && incomingImages.length > 0)
+      updateData.images = incomingImages;
+    const categoryIdNum = Number.parseInt((productCategoryId ?? "").toString(), 10);
+    if (Number.isInteger(categoryIdNum) && categoryIdNum > 0)
+      updateData.productCategoryId = categoryIdNum;
+    if (isActive !== undefined) updateData.isActive = isActive;
+  }
 
   const updatedProduct = await prisma.$transaction(async (tx) => {
     // Update basic product fields
@@ -1202,6 +1243,7 @@ export {
   getGlobalProducts,
   addShopGlobalProduct,
   addShopProduct,
+  updateShopProductStatus,
   updateShopProduct,
   updateStockAndPrice,
   addShopProductFromGlobleProduct
