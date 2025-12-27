@@ -340,6 +340,14 @@ const getCart = asyncHandler(async (req, res) => {
       shopProduct: {
         include: {
           globalProduct: true,
+          shopkeeper: {
+            include: {
+              address: true,
+              schedule: true,
+              minOrder: true,
+              deliveryRate: true,
+            },
+          },
         },
       },
       productPrice: true,
@@ -348,6 +356,8 @@ const getCart = asyncHandler(async (req, res) => {
 
   const items = cartItems.map((i) => {
     const isGlobal = i.shopProduct.isGlobalProduct;
+    const shopkeeper = i.shopProduct.shopkeeper;
+
     return {
       id: i.id,
       userId: i.userId,
@@ -364,9 +374,45 @@ const getCart = asyncHandler(async (req, res) => {
           : i.shopProduct.images[0],
         price: i.productPrice!.price,
       },
+      shop: {
+        id: shopkeeper.id,
+        name: shopkeeper.shopName,
+        category: shopkeeper.shopCategory,
+        image: shopkeeper.shopImage,
+        address: shopkeeper.address
+          ? {
+            id: shopkeeper.address.id,
+            line1: shopkeeper.address.line1,
+            line2: shopkeeper.address.line2,
+            city: shopkeeper.address.city,
+            state: shopkeeper.address.state,
+            pinCode: shopkeeper.address.pinCode,
+            geoLocation: shopkeeper.address.geoLocation,
+          }
+          : null,
+        schedule: shopkeeper.schedule
+          ? {
+            id: shopkeeper.schedule.id,
+            isOnlineDelivery: shopkeeper.schedule.isOnlineDelivery,
+            weeklySlots: shopkeeper.schedule.weeklySlots,
+          }
+          : null,
+        minOrder: shopkeeper.minOrder
+          ? {
+            id: shopkeeper.minOrder.id,
+            minimumValue: shopkeeper.minOrder.minimumValue,
+          }
+          : null,
+        deliveryRates: shopkeeper.deliveryRate
+          ? {
+            id: shopkeeper.deliveryRate.id,
+            rates: shopkeeper.deliveryRate.rates,
+          }
+          : null,
+      },
     };
   });
-
+  // console.log("Fetched cart items:", items);
   return res
     .status(200)
     .json(new ApiResponse(200, "Cart fetched successfully", { items }));
