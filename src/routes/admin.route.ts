@@ -34,8 +34,8 @@ router.post(
 // Global Products Management
 router.get("/products/get-all-global-product", adminController.getAllGlobalProducts);
 router.get("/products/global/:id", adminController.getGlobalProductById);
-router.patch("/products/global/:id", adminController.updateGlobalProduct);
-router.patch("/products/global/:id/status", adminController.toggleGlobalProductStatus);
+router.patch("/products/update-global-product/:id", adminController.updateGlobalProduct);
+router.patch("/products/toggle-global-product-status/:productId", adminController.toggleGlobalProductStatus);
 
 // Shop Products Management
 router.get("/products/shop", adminController.getAllShopProducts);

@@ -336,6 +336,7 @@ const createGlobalProduct = asyncHandler(async (req, res) => {
       brand: validatedData.brand,
       description: validatedData.description,
       images: validatedData.images,
+      isActive: validatedData.isActive,
       // prices: { createMany: { data: validatedData.pricing } },
     },
   });
@@ -521,15 +522,15 @@ const updateGlobalProduct = asyncHandler(async (req, res) => {
 });
 
 const toggleGlobalProductStatus = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { productId } = req.params;
   const { isActive } = req.body;
-
+  console.log(productId)
   if (typeof isActive !== "boolean") {
     throw new ApiError(400, "isActive must be a boolean");
   }
 
   const product = await prisma.globalProduct.update({
-    where: { id: Number(id) },
+    where: { id: Number(productId) },
     data: { isActive },
   });
 

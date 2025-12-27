@@ -18,6 +18,7 @@ export const globalProductSchema = zod.object({
   images: zod
     .array(zod.string().url("Each product image must be a valid URL"))
     .min(1, "At least one product image is required"),
+  isActive: zod.boolean().default(true),
   // pricing: zod
   //   .array(
   //     zod.object({
