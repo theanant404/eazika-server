@@ -410,8 +410,16 @@ const upsertDeliveryRates = asyncHandler(async (req, res) => {
 
 const getDeliveryRates = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
+  }
   const record = await prisma.shopDeliveryRate.findUnique({
-    where: { shopkeeperId: req.user.id },
+    where: { shopkeeperId: shopkeeper.id },
     include: {
       shopkeeper: {
         select: { id: true, shopName: true, shopCategory: true, isActive: true },
