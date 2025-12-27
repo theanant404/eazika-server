@@ -175,6 +175,14 @@ const getProductById = asyncHandler(async (req, res) => {
       },
       globalProduct: true,
       productCategories: true,
+      shopkeeper: {
+        include: {
+          minOrder: true,
+          deliveryRate: true,
+          schedule: true,
+          address: true,
+        },
+      },
       // ratings: { // Uncomment when ratings table is ready
       //   include: {
       //     user: {
@@ -209,6 +217,30 @@ const getProductById = asyncHandler(async (req, res) => {
       : product.description,
     images: isGlobal ? product.globalProduct?.images : product.images,
     prices: product.prices,
+    shop: {
+      id: product.shopkeeper.id,
+      name: product.shopkeeper.shopName,
+      category: product.shopkeeper.shopCategory,
+      image: product.shopkeeper.shopImage,
+      minimumOrderValue: product.shopkeeper.minOrder?.minimumValue || null,
+      deliveryRates: product.shopkeeper.deliveryRate?.rates || null,
+      schedule: product.shopkeeper.schedule
+        ? {
+          isOnlineDelivery: product.shopkeeper.schedule.isOnlineDelivery,
+          weeklySlots: product.shopkeeper.schedule.weeklySlots,
+        }
+        : null,
+      address: product.shopkeeper.address
+        ? {
+          latitude: product.shopkeeper.address.geoLocation?.split(",")[0],
+          longitude: product.shopkeeper.address.geoLocation?.split(",")[1],
+          fullAddress: product.shopkeeper.address.line1,
+          city: product.shopkeeper.address.city,
+          state: product.shopkeeper.address.state,
+          pincode: product.shopkeeper.address.pinCode,
+        }
+        : null,
+    },
     rating: {
       ratings: ratings.map((r: any) => {
         tatalRating += r.rating;
