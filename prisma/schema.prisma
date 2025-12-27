@@ -158,10 +158,10 @@ model Shopkeeper {
 }
 
 model ShopSchedule {
-  id               Int      @id @default(autoincrement())
-  shopkeeperId     Int      @unique @map("shopkeeper_id")
-  isOnlineDelivery Boolean  @default(false) @map("is_online_delivery")
-  weeklySlots      Json     @map("weekly_slots")
+  id               Int     @id @default(autoincrement())
+  shopkeeperId     Int     @unique @map("shopkeeper_id")
+  isOnlineDelivery Boolean @default(false) @map("is_online_delivery")
+  weeklySlots      Json    @map("weekly_slots")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
