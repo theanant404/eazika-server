@@ -422,51 +422,82 @@ const addShopGlobalProduct = asyncHandler(async (req, res) => {
   const { globalProductId, pricing } = req.body;
 
   if (!req.user) throw new ApiError(401, "User not authenticated");
-  if (!globalProductId || !Array.isArray(pricing) || pricing.length === 0) {
-    throw new ApiError(400, "Invalid payload: globalProductId and pricing required");
+
+  // Check if globalProductId exists
+  if (!globalProductId) {
+    throw new ApiError(400, "globalProductId is required");
+  }
+
+  // Check if pricing array is present and not empty
+  if (!Array.isArray(pricing) || pricing.length === 0) {
+    throw new ApiError(400, "pricing array is required and cannot be empty");
   }
 
   const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Find shopkeeper
     const shopkeeper = await tx.shopkeeper.findUnique({
       where: { userId: req.user!.id },
       select: { id: true },
     });
-    if (!shopkeeper)
+    if (!shopkeeper) {
       throw new ApiError(404, "Unauthorized access, only shopkeepers allowed");
+    }
 
+    // Check if global product exists
     const globalProduct = await tx.globalProduct.findUnique({
       where: { id: globalProductId },
-      select: { id: true, productCategoryId: true, name: true, brand: true, description: true, images: true },
+      select: { id: true, productCategoryId: true },
     });
-    if (!globalProduct) throw new ApiError(404, "Global product not found");
-    console.log('Global product found:', globalProduct);
-    // Create shop product and nested prices to get price ids
+    if (!globalProduct) {
+      throw new ApiError(404, "Global product not found");
+    }
+
+    // Create shop product with only globalProductId and productCategoryId
     const newProduct = await tx.shopProduct.create({
       data: {
         shopkeeperId: shopkeeper.id,
         productCategoryId: globalProduct.productCategoryId,
         isGlobalProduct: true,
         globalProductId: globalProduct.id,
-        name: globalProduct.name,
-        brand: globalProduct.brand,
-        description: globalProduct.description,
-        images: globalProduct.images,
-        prices: { create: pricing.map(({ id, globalProductId: _gp, ...rest }: any) => rest) },
       },
-      include: { prices: { select: { id: true } }, globalProduct: true, productCategories: true },
+      select: { id: true },
     });
-    if (!newProduct) throw new ApiError(500, "Failed to add product");
+    if (!newProduct) {
+      throw new ApiError(500, "Failed to create shop product");
+    }
 
-    const priceIds = newProduct.prices.map((p) => p.id);
+    // Store all prices in productPrice table
+    const priceIds: number[] = [];
+    for (const priceData of pricing) {
+      const createdPrice = await tx.productPrice.create({
+        data: {
+          price: Number(priceData.price),
+          discount: Number(priceData.discount || 0),
+          weight: Number(priceData.weight),
+          unit: priceData.unit,
+          stock: Number(priceData.stock || 0),
+          shopProductId: newProduct.id,
+        },
+        select: { id: true },
+      });
+      priceIds.push(createdPrice.id);
+    }
 
+    // Update shopProduct with priceIds
     return tx.shopProduct.update({
       where: { id: newProduct.id },
       data: { priceIds },
-      include: { prices: true, globalProduct: true, productCategories: true },
+      include: {
+        prices: true,
+        globalProduct: true,
+        productCategories: true
+      },
     });
   });
 
-  if (!product) throw new ApiError(500, "Failed to add product");
+  if (!product) {
+    throw new ApiError(500, "Failed to add product");
+  }
 
   return res
     .status(201)
