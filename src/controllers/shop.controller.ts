@@ -214,20 +214,32 @@ const getShopProducts = asyncHandler(async (req, res) => {
   ]);
 
   const filteredProducts = products.map((p) => {
+    const isGlobal = !!p.isGlobalProduct;
+    // If product is global, read canonical data from GlobalProduct
+    const source: any = isGlobal && p.globalProduct ? p.globalProduct : p;
 
     return {
       id: p.id,
-      isGlobalProduct: p.isGlobalProduct,
-      category: p.productCategories.name,
-      brand: p.brand,
-      name: p.name,
-      description: p.description,
-      images: p.images,
-      pricing: p.prices,
+      // flags
+      isGlobalProduct: isGlobal,
+      is_globle_product: isGlobal, // requested alias
       isActive: p.isActive,
+      isGlobalProductActive: isGlobal ? p.globalProduct?.isActive : undefined,
+      is_globle_product_active: isGlobal ? p.globalProduct?.isActive : undefined, // requested alias
+
+      // core product info (global source when applicable)
+      category: p.productCategories?.name || null,
+      brand: source?.brand || null,
+      name: source?.name || null,
+      description: source?.description || null,
+      images: source?.images || [],
+
+      // pricing always from shop product
+      pricing: p.prices,
+
+      // relations/ids
       globalProductId: p.globalProductId,
     };
-
   });
   // console.log("Filtered shop products:", filteredProducts);
 
@@ -249,7 +261,6 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
   // 1. Parse pagination params from query
   // 2. Fetch global products from DB with pagination
   // 3. Return products with pagination info
-  console.log('api successfully hiied!')
   const pagination =
     (req.query.pagination as {
       currentPage: string;
