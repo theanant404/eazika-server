@@ -153,6 +153,8 @@ model Shopkeeper {
   shopProducts ShopProduct[]
   deliveryBoys DeliveryBoy[]
   schedule     ShopSchedule?
+  minOrder     ShopMinOrder?
+  deliveryRate ShopDeliveryRate?
 
   @@map("shopkeepers")
 }
@@ -169,6 +171,32 @@ model ShopSchedule {
   shopkeeper Shopkeeper @relation(fields: [shopkeeperId], references: [id])
 
   @@map("shop_schedules")
+}
+
+model ShopMinOrder {
+  id           Int   @id @default(autoincrement())
+  shopkeeperId Int   @unique @map("shopkeeper_id")
+  minimumValue Float @map("minimum_order_value")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shopkeeper Shopkeeper @relation(fields: [shopkeeperId], references: [id])
+
+  @@map("shop_min_orders")
+}
+
+model ShopDeliveryRate {
+  id           Int  @id @default(autoincrement())
+  shopkeeperId Int  @unique @map("shopkeeper_id")
+  rates        Json @map("delivery_rates")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shopkeeper Shopkeeper @relation(fields: [shopkeeperId], references: [id])
+
+  @@map("shop_delivery_rates")
 }
 
 model DeliveryBoy {

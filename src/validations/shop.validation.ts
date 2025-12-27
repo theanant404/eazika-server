@@ -123,6 +123,38 @@ export const shopScheduleUpdateSchema = zod.object({
   weeklySlots: zod.array(weeklySlotSchema).optional(),
 });
 
+export const minOrderSchema = zod.object({
+  minimumOrderValue: zod
+    .number()
+    .positive("minimumOrderValue must be a positive number"),
+});
+
+export const minOrderUpdateSchema = zod.object({
+  minimumOrderValue: zod
+    .number()
+    .positive("minimumOrderValue must be a positive number")
+    .optional(),
+});
+
+const deliveryRateItemSchema = zod.object({
+  km: zod
+    .number()
+    .positive("km must be positive"),
+  price: zod
+    .number()
+    .min(0, "price cannot be negative"),
+});
+
+export const deliveryRatesSchema = zod.object({
+  rates: zod
+    .array(deliveryRateItemSchema)
+    .min(1, "At least one delivery rate is required"),
+});
+
+export const deliveryRatesUpdateSchema = zod.object({
+  rates: zod.array(deliveryRateItemSchema).optional(),
+});
+
 /*
 bankDetail: zod.object({
     accountHolderName: zod
