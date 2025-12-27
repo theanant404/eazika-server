@@ -17,7 +17,7 @@ router.post("/min-order", isShopkeeper, shop.upsertMinOrderValue);
 router.get("/min-order/", isShopkeeper, shop.getMinOrderValue);
 // Delivery rates routes
 router.post("/delivery-rates", isShopkeeper, shop.upsertDeliveryRates);
-router.get("/delivery-rates/:shopkeeperId", authMiddleware, shop.getDeliveryRates);
+router.get("/delivery-rates", isShopkeeper, shop.getDeliveryRates);
 
 // ========== Product Management Routes ==========
 const product = Router();
