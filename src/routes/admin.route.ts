@@ -25,13 +25,14 @@ router.get("/orders/get-all", adminController.getAllOrders);
 router.get("/products/get-categories", adminController.getAllProductCategories);
 router.post("/products/create-category", adminController.createProductCategory);
 router.post("/products/add-global", adminController.createGlobalProduct);
+
 router.post(
   "/products/add-global-in-bluk",
   adminController.createGlobalProductsBulk
 );
 
 // Global Products Management
-router.get("/products/global", adminController.getAllGlobalProducts);
+router.get("/products/get-all-global-product", adminController.getAllGlobalProducts);
 router.get("/products/global/:id", adminController.getGlobalProductById);
 router.patch("/products/global/:id", adminController.updateGlobalProduct);
 router.patch("/products/global/:id/status", adminController.toggleGlobalProductStatus);

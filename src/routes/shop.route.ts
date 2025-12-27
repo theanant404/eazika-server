@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as shop from "../controllers/shop.controller.js";
-import { isShopkeeper, authMiddleware } from "../middlewares/auth.middleware";
+import { isShopkeeper, authMiddleware, isShopkeeperOrAdmin } from "../middlewares/auth.middleware";
 
 const router = Router();
 
@@ -11,9 +11,12 @@ router.put("/update-shop", isShopkeeper, shop.updateShop);
 // ========== Product Management Routes ==========
 const product = Router();
 router.get("/get-all-categories", shop.getShopCategories);
+router.get("/get-all-global-product", shop.getGlobalProducts);
 router.use("/products", isShopkeeper, product); // all product routes require shopkeeper authentication
 product.get("/get-all-categories", shop.getShopCategories);
 product.post("/add-shop-product", shop.addShopProduct);
+product.get("/get-all-categories", shop.getShopCategories);
+product.get("/get-all-global-product", shop.getGlobalProducts);
 // product.post("/add-shop-product-from-global-catalog", shop.addShopProductFromGlobleProduct);
 product.get("/get-all-product", shop.getShopProducts);
 product.get("/get-all-global-product", shop.getGlobalProducts);

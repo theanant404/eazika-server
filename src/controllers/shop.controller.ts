@@ -277,6 +277,7 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
     name: p.name,
     description: p.description,
     images: p.images,
+    isActive: p.isActive,
   }));
 
   return res.status(200).json(
