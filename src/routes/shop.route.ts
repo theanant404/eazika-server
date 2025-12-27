@@ -11,13 +11,13 @@ router.put("/update-shop-address", isShopkeeper, shop.updateShopkeeperAddress);
 router.get("/get-shop-address", isShopkeeper, shop.getShopkeeperAddress);
 // Shop schedule routes
 router.post("/schedule", isShopkeeper, shop.upsertShopSchedule);
-router.get("/schedule/:shopkeeperId", shop.getShopSchedule);
+router.get("/schedule", isShopkeeper, shop.getShopSchedule);
 // Minimum order value routes
 router.post("/min-order", isShopkeeper, shop.upsertMinOrderValue);
-router.get("/min-order/:shopkeeperId", shop.getMinOrderValue);
+router.get("/min-order/", isShopkeeper, shop.getMinOrderValue);
 // Delivery rates routes
 router.post("/delivery-rates", isShopkeeper, shop.upsertDeliveryRates);
-router.get("/delivery-rates/:shopkeeperId", shop.getDeliveryRates);
+router.get("/delivery-rates/:shopkeeperId", authMiddleware, shop.getDeliveryRates);
 
 // ========== Product Management Routes ==========
 const product = Router();

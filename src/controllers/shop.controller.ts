@@ -285,15 +285,18 @@ const upsertShopSchedule = asyncHandler(async (req, res) => {
 
 
 const getShopSchedule = asyncHandler(async (req, res) => {
-  const idRaw = (req.params.shopkeeperId as string) || (req.query.shopkeeperId as string);
-  const shopkeeperId = Number.parseInt((idRaw ?? "").toString(), 10);
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
 
-  if (!Number.isInteger(shopkeeperId) || shopkeeperId <= 0) {
-    throw new ApiError(400, "Valid shopkeeperId is required");
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
   }
 
   const schedule = await prisma.shopSchedule.findUnique({
-    where: { shopkeeperId },
+    where: { shopkeeperId: shopkeeper.id },
     include: {
       shopkeeper: {
         select: {
@@ -347,15 +350,18 @@ const upsertMinOrderValue = asyncHandler(async (req, res) => {
 
 
 const getMinOrderValue = asyncHandler(async (req, res) => {
-  const idRaw = (req.params.shopkeeperId as string) || (req.query.shopkeeperId as string);
-  const shopkeeperId = Number.parseInt((idRaw ?? "").toString(), 10);
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
 
-  if (!Number.isInteger(shopkeeperId) || shopkeeperId <= 0) {
-    throw new ApiError(400, "Valid shopkeeperId is required");
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
   }
 
   const record = await prisma.shopMinOrder.findUnique({
-    where: { shopkeeperId },
+    where: { shopkeeperId: shopkeeper.id },
     include: {
       shopkeeper: {
         select: { id: true, shopName: true, shopCategory: true, isActive: true },
