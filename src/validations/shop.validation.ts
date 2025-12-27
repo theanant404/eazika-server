@@ -94,6 +94,35 @@ export const updateStockAndPriceSchema = zod.object({
   unit: zod.enum(["grams", "kg", "ml", "litre", "piece"]).default("grams"),
 });
 
+const weeklySlotSchema = zod.object({
+  day: zod.enum([
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ]),
+  isOpen: zod.boolean(),
+  open: zod
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "open time must be HH:MM (24h)"),
+  close: zod
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "close time must be HH:MM (24h)"),
+});
+
+export const shopScheduleSchema = zod.object({
+  isOnlineDelivery: zod.boolean(),
+  weeklySlots: zod.array(weeklySlotSchema).min(1, "At least one weekly slot is required"),
+});
+
+export const shopScheduleUpdateSchema = zod.object({
+  isOnlineDelivery: zod.boolean().optional(),
+  weeklySlots: zod.array(weeklySlotSchema).optional(),
+});
+
 /*
 bankDetail: zod.object({
     accountHolderName: zod

@@ -1,12 +1,18 @@
 import { Router } from "express";
 import * as shop from "../controllers/shop.controller.js";
-import { isShopkeeper, authMiddleware, isShopkeeperOrAdmin } from "../middlewares/auth.middleware";
+import { isShopkeeper, authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 // ========= Shop Management Routes ==========
 router.post("/create-shop", authMiddleware, shop.createShop);
 router.put("/update-shop", isShopkeeper, shop.updateShop);
+router.put("/update-shop-address", isShopkeeper, shop.updateShopkeeperAddress);
+router.get("/get-shop-address", isShopkeeper, shop.getShopkeeperAddress);
+// Shop schedule routes
+router.post("/schedule", isShopkeeper, shop.createShopSchedule);
+router.put("/schedule", isShopkeeper, shop.updateShopSchedule);
+router.get("/schedule/:shopkeeperId", shop.getShopSchedule);
 
 // ========== Product Management Routes ==========
 const product = Router();

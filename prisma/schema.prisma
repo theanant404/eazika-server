@@ -152,8 +152,23 @@ model Shopkeeper {
   bankDetail   BankDetail?        @relation(fields: bankDetailId, references: id)
   shopProducts ShopProduct[]
   deliveryBoys DeliveryBoy[]
+  schedule     ShopSchedule?
 
   @@map("shopkeepers")
+}
+
+model ShopSchedule {
+  id               Int      @id @default(autoincrement())
+  shopkeeperId     Int      @unique @map("shopkeeper_id")
+  isOnlineDelivery Boolean  @default(false) @map("is_online_delivery")
+  weeklySlots      Json     @map("weekly_slots")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shopkeeper Shopkeeper @relation(fields: [shopkeeperId], references: [id])
+
+  @@map("shop_schedules")
 }
 
 model DeliveryBoy {

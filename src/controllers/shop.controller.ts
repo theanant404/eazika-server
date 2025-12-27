@@ -4,6 +4,8 @@ import { ApiError, ApiResponse } from "../utils/apiHandler";
 import {
   shopRegistrationSchema,
   updateStockAndPriceSchema,
+  shopScheduleSchema,
+  shopScheduleUpdateSchema,
 } from "../validations/shop.validation";
 import {
   shopProductSchema,
@@ -159,6 +161,188 @@ const updateShop = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "Shop updated successfully", updatedShopkeeper));
+});
+
+const updateShopkeeperAddress = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const {
+    name,
+    phone,
+    line1,
+    line2,
+    street,
+    city,
+    state,
+    pinCode,
+    country,
+    geoLocation,
+  } = req.body;
+  // console.log(name, phone, line1, line2, street, city, state, pinCode, country, geoLocation);
+  // Find shopkeeper profile to ensure user is a shopkeeper
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true, addressId: true },
+  });
+  console.log(shopkeeper)
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
+  }
+
+  if (!shopkeeper.addressId) {
+    throw new ApiError(404, "No address found for this shopkeeper");
+  }
+
+  // Prepare update data - only include provided fields
+  const updateData: any = {};
+
+  if (name !== undefined) updateData.name = name;
+  if (phone !== undefined) updateData.phone = phone;
+  if (line1 !== undefined) updateData.line1 = line1;
+  if (line2 !== undefined) updateData.line2 = line2;
+  if (street !== undefined) updateData.street = street;
+  if (city !== undefined) updateData.city = city;
+  if (state !== undefined) updateData.state = state;
+  if (pinCode !== undefined) updateData.pinCode = pinCode;
+  if (country !== undefined) updateData.country = country;
+  if (geoLocation !== undefined) updateData.geoLocation = geoLocation;
+
+  // Update address
+  const updatedAddress = await prisma.address.update({
+    where: { id: shopkeeper.addressId },
+    data: updateData,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Address updated successfully", updatedAddress));
+});
+
+const getShopkeeperAddress = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { addressId: true },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
+  }
+
+  if (!shopkeeper.addressId) {
+    throw new ApiError(404, "No address found for this shopkeeper");
+  }
+
+  const address = await prisma.address.findUnique({
+    where: { id: shopkeeper.addressId },
+  });
+
+  if (!address) {
+    throw new ApiError(404, "Address not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Address fetched successfully", address));
+});
+
+const createShopSchedule = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const payload = shopScheduleSchema.parse(req.body);
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
+  }
+
+  const schedule = await prisma.shopSchedule.upsert({
+    where: { shopkeeperId: shopkeeper.id },
+    create: {
+      shopkeeperId: shopkeeper.id,
+      isOnlineDelivery: payload.isOnlineDelivery,
+      weeklySlots: payload.weeklySlots,
+    },
+    update: {
+      isOnlineDelivery: payload.isOnlineDelivery,
+      weeklySlots: payload.weeklySlots,
+    },
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "Shop schedule saved successfully", schedule));
+});
+
+const updateShopSchedule = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const payload = shopScheduleUpdateSchema.parse(req.body || {});
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
+  }
+
+  const existing = await prisma.shopSchedule.findUnique({
+    where: { shopkeeperId: shopkeeper.id },
+  });
+
+  if (!existing) {
+    throw new ApiError(404, "Schedule not found, create schedule first");
+  }
+
+  const schedule = await prisma.shopSchedule.update({
+    where: { shopkeeperId: shopkeeper.id },
+    data: {
+      isOnlineDelivery: payload.isOnlineDelivery ?? existing.isOnlineDelivery,
+      weeklySlots: (payload.weeklySlots as Prisma.InputJsonValue | undefined) ?? (existing.weeklySlots as Prisma.InputJsonValue),
+    },
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Shop schedule updated successfully", schedule));
+});
+
+const getShopSchedule = asyncHandler(async (req, res) => {
+  const idRaw = (req.params.shopkeeperId as string) || (req.query.shopkeeperId as string);
+  const shopkeeperId = Number.parseInt((idRaw ?? "").toString(), 10);
+
+  if (!Number.isInteger(shopkeeperId) || shopkeeperId <= 0) {
+    throw new ApiError(400, "Valid shopkeeperId is required");
+  }
+
+  const schedule = await prisma.shopSchedule.findUnique({
+    where: { shopkeeperId },
+    include: {
+      shopkeeper: {
+        select: {
+          id: true,
+          shopName: true,
+          shopCategory: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+
+  if (!schedule) {
+    throw new ApiError(404, "Shop schedule not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Shop schedule fetched successfully", schedule));
 });
 
 /* ================================= Product Management Controllers ================================ */
@@ -1234,7 +1418,15 @@ const getShopAnalytics = asyncHandler(async (req, res) => {
 /* ********************************************* Exports Controllers ********************************************* */
 
 // Shop Management Controllers
-export { createShop, updateShop };
+export {
+  createShop,
+  updateShop,
+  updateShopkeeperAddress,
+  getShopkeeperAddress,
+  createShopSchedule,
+  updateShopSchedule,
+  getShopSchedule,
+};
 
 // Product Management Controllers
 export {
