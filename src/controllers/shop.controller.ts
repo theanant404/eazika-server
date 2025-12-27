@@ -251,7 +251,7 @@ const getShopkeeperAddress = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Address fetched successfully", address));
 });
 
-const createShopSchedule = asyncHandler(async (req, res) => {
+const upsertShopSchedule = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const payload = shopScheduleSchema.parse(req.body);
@@ -283,40 +283,6 @@ const createShopSchedule = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Shop schedule saved successfully", schedule));
 });
 
-const updateShopSchedule = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  const payload = shopScheduleUpdateSchema.parse(req.body || {});
-
-  const shopkeeper = await prisma.shopkeeper.findUnique({
-    where: { userId: req.user.id },
-    select: { id: true },
-  });
-
-  if (!shopkeeper) {
-    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
-  }
-
-  const existing = await prisma.shopSchedule.findUnique({
-    where: { shopkeeperId: shopkeeper.id },
-  });
-
-  if (!existing) {
-    throw new ApiError(404, "Schedule not found, create schedule first");
-  }
-
-  const schedule = await prisma.shopSchedule.update({
-    where: { shopkeeperId: shopkeeper.id },
-    data: {
-      isOnlineDelivery: payload.isOnlineDelivery ?? existing.isOnlineDelivery,
-      weeklySlots: (payload.weeklySlots as Prisma.InputJsonValue | undefined) ?? (existing.weeklySlots as Prisma.InputJsonValue),
-    },
-  });
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Shop schedule updated successfully", schedule));
-});
 
 const getShopSchedule = asyncHandler(async (req, res) => {
   const idRaw = (req.params.shopkeeperId as string) || (req.query.shopkeeperId as string);
@@ -349,7 +315,7 @@ const getShopSchedule = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Shop schedule fetched successfully", schedule));
 });
 
-const createMinOrderValue = asyncHandler(async (req, res) => {
+const upsertMinOrderValue = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const payload = minOrderSchema.parse(req.body);
@@ -379,39 +345,6 @@ const createMinOrderValue = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Minimum order value saved successfully", record));
 });
 
-const updateMinOrderValue = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  const payload = minOrderUpdateSchema.parse(req.body || {});
-
-  const shopkeeper = await prisma.shopkeeper.findUnique({
-    where: { userId: req.user.id },
-    select: { id: true },
-  });
-
-  if (!shopkeeper) {
-    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
-  }
-
-  const existing = await prisma.shopMinOrder.findUnique({
-    where: { shopkeeperId: shopkeeper.id },
-  });
-
-  if (!existing) {
-    throw new ApiError(404, "Minimum order value not found, create first");
-  }
-
-  const record = await prisma.shopMinOrder.update({
-    where: { shopkeeperId: shopkeeper.id },
-    data: {
-      minimumValue: payload.minimumOrderValue ?? existing.minimumValue,
-    },
-  });
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Minimum order value updated successfully", record));
-});
 
 const getMinOrderValue = asyncHandler(async (req, res) => {
   const idRaw = (req.params.shopkeeperId as string) || (req.query.shopkeeperId as string);
@@ -439,7 +372,7 @@ const getMinOrderValue = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Minimum order value fetched successfully", record));
 });
 
-const createDeliveryRates = asyncHandler(async (req, res) => {
+const upsertDeliveryRates = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const payload = deliveryRatesSchema.parse(req.body);
@@ -467,40 +400,6 @@ const createDeliveryRates = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(new ApiResponse(201, "Delivery rates saved successfully", record));
-});
-
-const updateDeliveryRates = asyncHandler(async (req, res) => {
-  if (!req.user) throw new ApiError(401, "User not authenticated");
-
-  const payload = deliveryRatesUpdateSchema.parse(req.body || {});
-
-  const shopkeeper = await prisma.shopkeeper.findUnique({
-    where: { userId: req.user.id },
-    select: { id: true },
-  });
-
-  if (!shopkeeper) {
-    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
-  }
-
-  const existing = await prisma.shopDeliveryRate.findUnique({
-    where: { shopkeeperId: shopkeeper.id },
-  });
-
-  if (!existing) {
-    throw new ApiError(404, "Delivery rates not found, create first");
-  }
-
-  const record = await prisma.shopDeliveryRate.update({
-    where: { shopkeeperId: shopkeeper.id },
-    data: {
-      rates: (payload.rates as Prisma.InputJsonValue | undefined) ?? (existing.rates as Prisma.InputJsonValue),
-    },
-  });
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Delivery rates updated successfully", record));
 });
 
 const getDeliveryRates = asyncHandler(async (req, res) => {
@@ -1607,14 +1506,11 @@ export {
   updateShop,
   updateShopkeeperAddress,
   getShopkeeperAddress,
-  createShopSchedule,
-  updateShopSchedule,
+  upsertShopSchedule,
   getShopSchedule,
-  createMinOrderValue,
-  updateMinOrderValue,
+  upsertMinOrderValue,
   getMinOrderValue,
-  createDeliveryRates,
-  updateDeliveryRates,
+  upsertDeliveryRates,
   getDeliveryRates,
 };
 
