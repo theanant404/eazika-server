@@ -263,8 +263,13 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
       address: true,
       orderItems: {
         include: {
-          // shopProduct: true,
-          // productPrice: true,
+          product: {
+            include: {
+              globalProduct: true,
+              productCategories: true,
+            },
+          },
+          priceDetails: true,
         },
       },
     },
@@ -275,9 +280,68 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
     where: whereClause,
   });
 
+  const formattedOrders = orders.map((order) => {
+    const address = order.address;
+
+    return {
+      id: order.id,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      totalProducts: order.totalProducts,
+      paymentMethod: order.paymentMethod,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      customer: order.user,
+      address: address
+        ? {
+          id: address.id,
+          name: address.name,
+          phone: address.phone,
+          line1: address.line1,
+          line2: address.line2,
+          city: address.city,
+          state: address.state,
+          pinCode: address.pinCode,
+          geoLocation: {
+            raw: address.geoLocation,
+            latitude: address.geoLocation?.split(",")[0] || null,
+            longitude: address.geoLocation?.split(",")[1] || null,
+          },
+        }
+        : null,
+      items: order.orderItems.map((item) => {
+        const product = item.product;
+        const isGlobal = product?.isGlobalProduct;
+
+        return {
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unit: item.unit,
+          weight: item.weight,
+          price: item.price,
+          productName: product
+            ? isGlobal
+              ? product.globalProduct?.name
+              : product.name
+            : null,
+          priceDetails: item.priceDetails
+            ? {
+              id: item.priceDetails.id,
+              price: item.priceDetails.price,
+              discount: item.priceDetails.discount,
+              weight: item.priceDetails.weight,
+              unit: item.priceDetails.unit,
+            }
+            : null,
+        };
+      }),
+    };
+  });
+
   return res.status(200).json(
     new ApiResponse(200, "Assigned orders fetched successfully", {
-      orders,
+      orders: formattedOrders,
       pagination: {
         page,
         limit,
@@ -306,12 +370,12 @@ const getNearbyShops = asyncHandler(async (req, res) => {
 
   // Fetch all shopkeepers with their address
   const shops = await prisma.shopkeeper.findMany({
-    where: { 
+    where: {
       isActive: true,
       // If city is provided, we only want shops in that city
       user: {
         address: {
-            some: addressWhere
+          some: addressWhere
         }
       }
     },
@@ -321,10 +385,10 @@ const getNearbyShops = asyncHandler(async (req, res) => {
       shopImage: true,
       user: {
         select: {
-           address: {
-             where: { isDeleted: false },
-             take: 1
-           }
+          address: {
+            where: { isDeleted: false },
+            take: 1
+          }
         }
       }
     }
@@ -351,25 +415,25 @@ const getNearbyShops = asyncHandler(async (req, res) => {
  * - Returns list of unique cities where shops are located
  */
 const getAvailableCities = asyncHandler(async (req, res) => {
-    const cities = await prisma.address.findMany({
-        where: {
-            isDeleted: false,
-            user: {
-                role: 'shopkeeper',
-                shopkeeper: {
-                    isActive: true
-                }
-            }
-        },
-        select: { city: true },
-        distinct: ['city']
-    });
+  const cities = await prisma.address.findMany({
+    where: {
+      isDeleted: false,
+      user: {
+        role: 'shopkeeper',
+        shopkeeper: {
+          isActive: true
+        }
+      }
+    },
+    select: { city: true },
+    distinct: ['city']
+  });
 
-    const uniqueCities = cities.map(c => c.city).filter(Boolean);
+  const uniqueCities = cities.map(c => c.city).filter(Boolean);
 
-    return res.status(200).json(
-        new ApiResponse(200, "Cities fetched successfully", uniqueCities)
-    );
+  return res.status(200).json(
+    new ApiResponse(200, "Cities fetched successfully", uniqueCities)
+  );
 });
 
 
@@ -406,7 +470,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
   // Update
   const updateData: any = { status };
-  
+
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: updateData
@@ -440,9 +504,9 @@ const updateLocation = asyncHandler(async (req, res) => {
   });
 
   return res.status(200).json(
-    new ApiResponse(200, "Location updated", { 
-       lat: deliveryBoy.currentLat, 
-       lng: deliveryBoy.currentLng 
+    new ApiResponse(200, "Location updated", {
+      lat: deliveryBoy.currentLat,
+      lng: deliveryBoy.currentLng
     })
   );
 });
@@ -479,8 +543,8 @@ const getDeliveryProfile = asyncHandler(async (req, res) => {
   const deliveryBoy = await prisma.deliveryBoy.findUnique({
     where: { userId: req.user.id },
     include: {
-        user: { select: { name: true, phone: true } },
-        shopkeeper: { select: { shopName: true } }
+      user: { select: { name: true, phone: true } },
+      shopkeeper: { select: { shopName: true } }
     }
   });
 
@@ -489,17 +553,17 @@ const getDeliveryProfile = asyncHandler(async (req, res) => {
   // Calculate Total Earnings (Sum of totalAmount of delivered orders)
   const earnings = await prisma.order.aggregate({
     where: {
-        assignedDeliveryBoyId: deliveryBoy.id,
-        status: 'delivered'
+      assignedDeliveryBoyId: deliveryBoy.id,
+      status: 'delivered'
     },
     _sum: {
-        totalAmount: true
+      totalAmount: true
     }
   });
 
   const profileWithStats = {
-      ...deliveryBoy,
-      totalEarnings: earnings._sum.totalAmount || 0
+    ...deliveryBoy,
+    totalEarnings: earnings._sum.totalAmount || 0
   };
 
   return res.status(200).json(
@@ -507,11 +571,11 @@ const getDeliveryProfile = asyncHandler(async (req, res) => {
   );
 });
 
-export { 
-  createDeliveryProfile, 
-  updateDeliveryProfile, 
+export {
+  createDeliveryProfile,
+  updateDeliveryProfile,
   getAssignedOrders,
-  updateOrderStatus, 
+  updateOrderStatus,
   updateLocation,
   getNearbyShops,
   toggleAvailability,
