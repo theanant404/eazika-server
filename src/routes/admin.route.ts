@@ -12,6 +12,7 @@ router.get("/users/get-all-users", adminController.getAllUsers);
 
 // --------- Shop Management Routes ---------
 router.get("/shops/get-all", adminController.getAllShops);
+router.get("/shops/get-all-addresses", adminController.getAllShopAddresses);
 router.patch("/shops/:shopId/verify", adminController.verifyShop);
 router.patch("/shops/:shopId/status", adminController.toggleShopStatus);
 

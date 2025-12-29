@@ -222,6 +222,54 @@ const toggleShopStatus = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, `Shop ${isActive ? 'activated' : 'deactivated'} successfully`, shop));
 });
 
+const getAllShopAddresses = asyncHandler(async (req, res) => {
+  const shops = await prisma.shopkeeper.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      address: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          line1: true,
+          line2: true,
+          street: true,
+          city: true,
+          state: true,
+          pinCode: true,
+          country: true,
+          geoLocation: true,
+        },
+      },
+    },
+  });
+
+  const formattedShops = shops.map(shop => ({
+    shopId: shop.id,
+    shopName: shop.shopName,
+    shopCategory: shop.shopCategory,
+    isActive: shop.isActive,
+    address: shop.address ? {
+      id: shop.address.id,
+      name: shop.address.name,
+      phone: shop.address.phone,
+      line1: shop.address.line1,
+      line2: shop.address.line2,
+      street: shop.address.street,
+      city: shop.address.city,
+      state: shop.address.state,
+      pinCode: shop.address.pinCode,
+      country: shop.address.country,
+      geoLocation: shop.address.geoLocation ?? null,
+      fullAddress: `${shop.address.line1}, ${shop.address.city}, ${shop.address.state}, ${shop.address.pinCode}`,
+    } : null,
+  }));
+
+  res.status(200).json(
+    new ApiResponse(200, "Shop addresses fetched successfully", formattedShops)
+  );
+});
+
 /* ################ Riders Management ################ */
 const getAllRiders = asyncHandler(async (req, res) => {
   const riders = await prisma.deliveryBoy.findMany({
@@ -376,6 +424,7 @@ export {
   getDashboardStats,
   getAllUsers,
   getAllShops,
+  getAllShopAddresses,
   verifyShop,
   toggleShopStatus,
   getAllRiders,

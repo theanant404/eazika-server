@@ -1128,9 +1128,11 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
   const formattedOrders = allOrders.map((o) => {
     return {
       id: o.id,
+      userId: o.user.id,
       customerName: o.user.name,
       createdAt: o.createdAt,
       address: `${o.address.line1}, ${o.address.city}, ${o.address.state}, ${o.address.pinCode}`,
+      geoLocation: o.address.geoLocation ?? null,
       itemCount: o.orderItems.length,
       paymentMethod: o.paymentMethod,
       status: o.status,
