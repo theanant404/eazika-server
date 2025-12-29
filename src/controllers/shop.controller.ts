@@ -222,6 +222,39 @@ const updateShopkeeperAddress = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Address updated successfully", updatedAddress));
 });
 
+const getShopGeoLocation = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { addressId: true },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Unauthorized, only shopkeepers allowed");
+  }
+
+  if (!shopkeeper.addressId) {
+    throw new ApiError(404, "No address found for this shopkeeper");
+  }
+
+  const address = await prisma.address.findUnique({
+    where: { id: shopkeeper.addressId },
+    select: { geoLocation: true, line1: true, city: true, state: true, pinCode: true },
+  });
+
+  if (!address) {
+    throw new ApiError(404, "Address not found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Shop geo location fetched successfully", {
+      geoLocation: address.geoLocation ?? null,
+      address: `${address.line1}, ${address.city}, ${address.state}, ${address.pinCode}`,
+    })
+  );
+});
+
 const getShopkeeperAddress = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -1514,6 +1547,7 @@ export {
   createShop,
   updateShop,
   updateShopkeeperAddress,
+  getShopGeoLocation,
   getShopkeeperAddress,
   upsertShopSchedule,
   getShopSchedule,
