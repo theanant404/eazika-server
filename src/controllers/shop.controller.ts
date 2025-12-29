@@ -1168,6 +1168,7 @@ const getOrderById = asyncHandler(async (req, res) => {
     customerName: order.address.name,
     customerPhone: order.address.phone,
     address: `${order.address.line1}, ${order.address.city}, ${order.address.state}, ${order.address.pinCode}`,
+    geoLocation: order.address.geoLocation ?? null,
     status: order.status,
     totalAmount: order.totalAmount,
     itemCount: order.orderItems.length,
