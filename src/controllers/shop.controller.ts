@@ -1129,6 +1129,7 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
     return {
       id: o.id,
       userId: o.user.id,
+      name: o.address.name,
       customerName: o.user.name,
       createdAt: o.createdAt,
       address: `${o.address.line1}, ${o.address.city}, ${o.address.state}, ${o.address.pinCode}`,
