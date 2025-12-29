@@ -663,6 +663,18 @@ const trackOrder = asyncHandler(async (req, res) => {
   const order = await prisma.order.findUnique({
     where: { id: parseInt(orderId) },
     include: {
+      address: true,
+      orderItems: {
+        include: {
+          product: {
+            include: {
+              globalProduct: true,
+              productCategories: true,
+            },
+          },
+          priceDetails: true,
+        },
+      },
       deliveryBoy: {
         include: {
           user: true,
@@ -679,13 +691,69 @@ const trackOrder = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Unauthorized: Order doesn't belong to user");
   }
 
+  const totalQuantity = order.orderItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
   const trackingData = {
     orderId: order.id,
     status: order.status,
     totalAmount: order.totalAmount,
     totalProducts: order.totalProducts,
+    totalQuantity,
+    paymentMethod: order.paymentMethod,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+    address: order.address
+      ? {
+        id: order.address.id,
+        name: order.address.name,
+        phone: order.address.phone,
+        line1: order.address.line1,
+        line2: order.address.line2,
+        city: order.address.city,
+        state: order.address.state,
+        pinCode: order.address.pinCode,
+        geoLocation: {
+          raw: order.address.geoLocation,
+          latitude: order.address.geoLocation?.split(",")[0] || null,
+          longitude: order.address.geoLocation?.split(",")[1] || null,
+        },
+      }
+      : null,
+    items: order.orderItems.map((item) => {
+      const product = item.product;
+      const isGlobal = product?.isGlobalProduct;
+
+      return {
+        id: item.id,
+        productId: item.productId,
+        priceId: item.priceId,
+        quantity: item.quantity,
+        unit: item.unit,
+        weight: item.weight,
+        price: item.price,
+        product: product
+          ? {
+            id: product.id,
+            name: isGlobal ? product.globalProduct?.name : product.name,
+            brand: isGlobal ? product.globalProduct?.brand : product.brand,
+            images: isGlobal ? product.globalProduct?.images : product.images,
+            category: product.productCategories?.name,
+          }
+          : null,
+        priceDetails: item.priceDetails
+          ? {
+            id: item.priceDetails.id,
+            price: item.priceDetails.price,
+            discount: item.priceDetails.discount,
+            weight: item.priceDetails.weight,
+            unit: item.priceDetails.unit,
+          }
+          : null,
+      };
+    }),
     deliveryBoy: order.deliveryBoy
       ? {
         id: order.deliveryBoy.id,
@@ -697,6 +765,7 @@ const trackOrder = asyncHandler(async (req, res) => {
       }
       : null,
   };
+  // console.log(trackingData)
 
   return res
     .status(200)
