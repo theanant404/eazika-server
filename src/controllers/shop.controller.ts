@@ -1243,6 +1243,7 @@ const getOrderById = asyncHandler(async (req, res) => {
   }
   const orderItems = {
     id: order.id,
+    userId: order.userId,
     customerName: order.address.name,
     customerPhone: order.address.phone,
     address: `${order.address.line1}, ${order.address.city}, ${order.address.state}, ${order.address.pinCode}`,
