@@ -10,6 +10,8 @@ router.put("/update-shop", isShopkeeper, shop.updateShop);
 router.put("/update-shop-address", isShopkeeper, shop.updateShopkeeperAddress);
 router.get("/get-shop-address", isShopkeeper, shop.getShopkeeperAddress);
 router.get("/shop-geo-location", isShopkeeper, shop.getShopGeoLocation);
+router.get("/profile", isShopkeeper, shop.getShopDetails);
+router.get("/analytics", isShopkeeper, shop.getShopAnalytics);
 // Shop schedule routes
 router.post("/schedule", isShopkeeper, shop.upsertShopSchedule);
 router.get("/schedule", isShopkeeper, shop.getShopSchedule);

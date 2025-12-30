@@ -284,6 +284,48 @@ const getShopkeeperAddress = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Address fetched successfully", address));
 });
 
+const getShopDetails = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    include: {
+      user: {
+        select: { id: true, name: true, phone: true, image: true },
+      },
+      address: true,
+      schedule: true,
+      minOrder: true,
+      deliveryRate: true,
+    },
+  });
+
+  if (!shopkeeper) {
+    throw new ApiError(404, "Shop profile not found");
+  }
+
+  const payload = {
+    id: shopkeeper.id,
+    name: shopkeeper.shopName,
+    category: shopkeeper.shopCategory,
+    images: shopkeeper.shopImage,
+    coverPhoto: shopkeeper.shopImage?.[0] || null,
+    phone: shopkeeper.user.phone,
+    ownerName: shopkeeper.user.name,
+    address: shopkeeper.address,
+    schedule: shopkeeper.schedule,
+    minimumOrderValue: shopkeeper.minOrder?.minimumValue ?? null,
+    deliveryRates: shopkeeper.deliveryRate?.rates ?? null,
+    isActive: shopkeeper.isActive,
+    createdAt: shopkeeper.createdAt,
+    updatedAt: shopkeeper.updatedAt,
+  };
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Shop details fetched successfully", payload));
+});
+
 const upsertShopSchedule = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -1474,18 +1516,35 @@ const getShopAnalytics = asyncHandler(async (req, res) => {
 
   if (!shopkeeper) throw new ApiError(404, "Shop not found");
 
-  const range = (req.query.range as string) || "7d";
+  const range = ((req.query.range as string) || "all").toLowerCase();
 
-  // Date Filter Logic
-  let dateFilter: any = {};
-  const today = new Date();
-  if (range === "7d") {
-    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    dateFilter = { createdAt: { gte: lastWeek } };
-  } else if (range === "30d") {
-    const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-    dateFilter = { createdAt: { gte: lastMonth } };
-  }
+  // Date filter helper for requested window
+  const buildDateFilter = () => {
+    const now = new Date();
+    switch (range) {
+      case "7d":
+      case "past7days": {
+        const gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return { createdAt: { gte } };
+      }
+      case "30d":
+      case "lastmonth":
+      case "1m": {
+        const gte = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return { createdAt: { gte } };
+      }
+      case "3m":
+      case "last3months": {
+        const gte = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return { createdAt: { gte } };
+      }
+      case "all":
+      default:
+        return {};
+    }
+  };
+
+  const dateFilter = buildDateFilter();
 
   // Base Query for Shop Orders
   const shopOrdersClause = {
@@ -1520,6 +1579,7 @@ const getShopAnalytics = asyncHandler(async (req, res) => {
     metrics: {
       revenue: (revenueAgg._sum.totalAmount || 0).toString(),
       orders: totalOrders.toString(),
+      activeOrders: activeOrders.toString(),
       customers: customers.length.toString(),
       aov:
         totalOrders > 0
@@ -1552,6 +1612,7 @@ export {
   updateShopkeeperAddress,
   getShopGeoLocation,
   getShopkeeperAddress,
+  getShopDetails,
   upsertShopSchedule,
   getShopSchedule,
   upsertMinOrderValue,
@@ -1579,4 +1640,5 @@ export { getCurrentOrders, getOrderById, updateOrderStatus };
 export { getShopRiders, approveRider, rejectRider };
 
 // other controllers
-// export { getUserByPhone, sendInviteToDeliveryPartner, getShopAnalytics };
+// export { getUserByPhone, sendInviteToDeliveryPartner };
+export { getShopAnalytics };
