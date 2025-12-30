@@ -1417,6 +1417,75 @@ const rejectRider = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Rider rejected and removed"));
 });
 
+const getRiderAnalytics = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!shopkeeper) throw new ApiError(404, "Shop not found");
+
+  const range = ((req.query.range as string) || "all").toLowerCase();
+
+  const buildDateFilter = () => {
+    const now = new Date();
+    switch (range) {
+      case "7d":
+      case "past7days": {
+        const gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return { createdAt: { gte } };
+      }
+      case "30d":
+      case "lastmonth":
+      case "1m": {
+        const gte = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return { createdAt: { gte } };
+      }
+      case "3m":
+      case "last3months": {
+        const gte = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return { createdAt: { gte } };
+      }
+      case "all":
+      default:
+        return {};
+    }
+  };
+
+  const dateFilter = buildDateFilter();
+
+  const [totalRiders, availableRiders, busyRiders, deliveredOrders] =
+    await prisma.$transaction([
+      prisma.deliveryBoy.count({ where: { shopkeeperId: shopkeeper.id } }),
+      prisma.deliveryBoy.count({
+        where: { shopkeeperId: shopkeeper.id, isAvailable: true },
+      }),
+      prisma.deliveryBoy.count({
+        where: { shopkeeperId: shopkeeper.id, isAvailable: false },
+      }),
+      prisma.order.count({
+        where: {
+          status: "delivered",
+          orderItems: { some: { product: { shopkeeperId: shopkeeper.id } } },
+          ...dateFilter,
+        },
+      }),
+    ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Rider analytics fetched", {
+      range,
+      metrics: {
+        totalRiders,
+        availableRiders,
+        busyRiders,
+        deliveredOrders,
+      },
+    })
+  );
+});
+
 /* ====================================== Others Shop Controllers ===================================== */
 const getUserByPhone = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
@@ -1637,7 +1706,7 @@ export {
 export { getCurrentOrders, getOrderById, updateOrderStatus };
 
 // Shop Controllers for Riders
-export { getShopRiders, approveRider, rejectRider };
+export { getShopRiders, approveRider, rejectRider, getRiderAnalytics };
 
 // other controllers
 // export { getUserByPhone, sendInviteToDeliveryPartner };
