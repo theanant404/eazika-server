@@ -13,14 +13,27 @@ type PayloadType = {
 };
 
 const sendPushNotification = async (
+
   userIdOrPhone: string,
   payload: PayloadType = {}
 ) => {
-  const subscription = await prisma.pushNotification.findFirst({
-    where: { userId: Number(userIdOrPhone), phone: userIdOrPhone },
-    select: { id: true, endpoint: true, p256dhKey: true, authKey: true },
-  });
-
+  console.log("Sending push notification to:", userIdOrPhone, payload);
+  let subscription = null;
+  // Try by userId (number)
+  if (!isNaN(Number(userIdOrPhone))) {
+    subscription = await prisma.pushNotification.findFirst({
+      where: { userId: Number(userIdOrPhone) },
+      select: { id: true, endpoint: true, p256dhKey: true, authKey: true },
+    });
+  }
+  // If not found, try by phone
+  if (!subscription) {
+    subscription = await prisma.pushNotification.findFirst({
+      where: { phone: String(userIdOrPhone) },
+      select: { id: true, endpoint: true, p256dhKey: true, authKey: true },
+    });
+  }
+  console.log("Found subscription:", subscription);
   if (!subscription) throw new Error("Subscription not found for the user");
 
   const authEndpoint: PushSubscription = {

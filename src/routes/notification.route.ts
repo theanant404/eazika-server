@@ -11,5 +11,8 @@ router.post("/push/vapid-public-key", push.getVapidPublicKey);
 router.post("/push/subscribe", push.subscribePushNotification);
 router.post("/push/send/user/:userId", push.sendNotificationbyUserId);
 router.post("/push/send/all", push.sendNotificationToAll);
+router.get("/all", push.getNotifications);
+
+router.patch("/mark-read/:id/read", push.markNotificationRead);
 
 export default router;

@@ -16,8 +16,8 @@ const getVapidPublicKey = asyncHandler(async (_, res) => {
 });
 
 const subscribePushNotification = asyncHandler(async (req, res) => {
-  const subscription = SubscriptionSchema.parse(req.body.subscription);
-
+  const subscription = SubscriptionSchema.parse(req.body);
+  console.log("Received subscription:", subscription);
   const subscribe = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existingSubscription = await tx.pushNotification.findFirst({
       where: { endpoint: subscription.endpoint },
@@ -51,8 +51,9 @@ const subscribePushNotification = asyncHandler(async (req, res) => {
 const sendNotificationbyUserId = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   if (!userId) throw new ApiError(400, "User ID is required");
-
-  const pushResult = await sendPushNotification(userId);
+  const payload = req.body;
+  const pushResult = await sendPushNotification(userId, payload);
+  console.log("Push Result:", pushResult);
   if (![200, 201].includes(pushResult.statusCode))
     throw new ApiError(500, "Failed to send notification");
 
@@ -82,9 +83,77 @@ const sendNotificationToAll = asyncHandler(async (req, res) => {
   );
 });
 
+const getNotifications = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  // Fetch history for notifications tied to this user's subscriptions
+  const histories = await prisma.pushNotificationHistory.findMany({
+    where: {
+      pushNotification: { userId: req.user.id },
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      pushNotification: {
+        select: {
+          id: true,
+          userId: true,
+          phone: true,
+          user: { select: { id: true, name: true, phone: true, role: true } },
+        },
+      },
+    },
+  });
+
+  const items = histories.map((h) => ({
+    id: h.id,
+    title: h.title,
+    body: h.body,
+    url: h.url,
+    data: h.data,
+    isRead: h.isRead,
+    createdAt: h.createdAt,
+    sender: h.pushNotification?.user
+      ? {
+        id: h.pushNotification.user.id,
+        name: h.pushNotification.user.name,
+        phone: h.pushNotification.user.phone,
+        role: h.pushNotification.user.role,
+      }
+      : null,
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Notifications fetched successfully", items)
+  );
+});
+
 export {
   getVapidPublicKey,
   subscribePushNotification,
   sendNotificationbyUserId,
   sendNotificationToAll,
+  getNotifications,
+  markNotificationRead,
 };
+
+const markNotificationRead = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const { id } = req.params;
+  if (!id) throw new ApiError(400, "Notification id is required");
+
+  // Only allow marking as read if notification belongs to this user
+  const notification = await prisma.pushNotificationHistory.findUnique({
+    where: { id: Number(id) },
+    include: { pushNotification: true },
+  });
+  if (!notification || notification.pushNotification.userId !== req.user.id) {
+    throw new ApiError(404, "Notification not found or not yours");
+  }
+
+  await prisma.pushNotificationHistory.update({
+    where: { id: Number(id) },
+    data: { isRead: true },
+  });
+
+  return res.status(200).json(new ApiResponse(200, "Notification marked as read"));
+});
