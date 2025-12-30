@@ -580,8 +580,13 @@ const getOrder = asyncHandler(async (req, res) => {
     include: {
       orderItems: {
         include: {
-          // productPrice: true,
-          // shopProduct: true,
+          product: {
+            include: {
+              globalProduct: true,
+              productCategories: true,
+            },
+          },
+          priceDetails: true,
         },
       },
       address: true,
