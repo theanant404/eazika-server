@@ -166,7 +166,22 @@ const updateShop = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, "Shop updated successfully", updatedShopkeeper));
 });
-
+const getShopStatus = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+    select: { status: true, isActive: true },
+  });
+  if (!shopkeeper) {
+    throw new ApiError(404, "Shop profile not found");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Shop status fetched successfully", {
+      status: shopkeeper.status,
+      isActive: shopkeeper.isActive,
+    }));
+});
 const updateShopkeeperAddress = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -1735,6 +1750,7 @@ export {
   getMinOrderValue,
   upsertDeliveryRates,
   getDeliveryRates,
+  getShopStatus
 };
 
 // Product Management Controllers

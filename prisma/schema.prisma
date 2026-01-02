@@ -138,7 +138,7 @@ model Shopkeeper {
   shopImage     String[]     @map("shop_images")
   fssaiNumber   String?      @unique @map("fssai_number")
   gstNumber     String?      @unique @map("gst_number")
-  isActive      Boolean      @default(true) @map("is_active")
+  isActive      Boolean      @default(false) @map("is_active")
   deactivatedAt DateTime?    @map("deactivated_at")
   status        String       @default("pending") @map("status")
   // Timestamps

@@ -5,6 +5,7 @@ import { isShopkeeper, authMiddleware } from "../middlewares/auth.middleware";
 const router = Router();
 
 // ========= Shop Management Routes ==========
+router.get("/get-shop-status", authMiddleware, shop.getShopStatus);
 router.post("/create-shop", authMiddleware, shop.createShop);
 router.put("/update-shop", isShopkeeper, shop.updateShop);
 router.put("/update-shop-address", isShopkeeper, shop.updateShopkeeperAddress);
