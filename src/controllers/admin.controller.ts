@@ -186,18 +186,61 @@ const getAllShops = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, "Shops fetched successfully", formattedShops));
 });
 
+const getShopsPendingVerification = asyncHandler(async (req, res) => {
+  const filterStatus = req.query.status as string; // optional filter:'all', 'pending', 'rejected'
+  console.log("Filter Status:", filterStatus);
+  const shops = await prisma.shopkeeper.findMany({
+    where: { status: filterStatus && filterStatus !== 'all' ? filterStatus : undefined },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, phone: true, image: true, createdAt: true, updatedAt: true, role: true }
+      },
+      document: true, // All KYC documents
+      address: true, // Full address info
+      bankDetail: true, // Bank details if present
+      schedule: true, // Shop schedule if present
+      minOrder: true, // Minimum order value if present
+      deliveryRate: true, // Delivery rates if present
+    }
+  });
+
+  // Optionally, format the response to group all info clearly
+  const formattedShops = shops.map(shop => ({
+    id: shop.id,
+    shopName: shop.shopName,
+    shopCategory: shop.shopCategory,
+    shopImages: shop.shopImage,
+    fssaiNumber: shop.fssaiNumber,
+    gstNumber: shop.gstNumber,
+    isActive: shop.isActive,
+    status: shop.status,
+    createdAt: shop.createdAt,
+    updatedAt: shop.updatedAt,
+    user: shop.user,
+    address: shop.address,
+    document: shop.document,
+    bankDetail: shop.bankDetail,
+    schedule: shop.schedule,
+    minOrder: shop.minOrder,
+    deliveryRate: shop.deliveryRate,
+  }));
+
+  return res.status(200).json(new ApiResponse(200, "Pending shops fetched", formattedShops));
+});
 const verifyShop = asyncHandler(async (req, res) => {
   const { shopId } = req.params;
-  const { status } = req.body; // 'active' or 'rejected'
+  const { status } = req.body; // 'approved' or 'rejected'
 
-  if (!['active', 'rejected'].includes(status)) {
+  if (!['approved', 'rejected', 'suspended'].includes(status)) {
     throw new ApiError(400, "Invalid status. Must be 'active' or 'rejected'");
   }
 
   const shop = await prisma.shopkeeper.update({
     where: { id: Number(shopId) },
     data: {
-      isActive: status === 'active'
+      isActive: status === 'approved' ? true : false,
+      status: status
     }
   });
 
@@ -206,20 +249,20 @@ const verifyShop = asyncHandler(async (req, res) => {
 
 const toggleShopStatus = asyncHandler(async (req, res) => {
   const { shopId } = req.params;
-  const { isActive } = req.body;
+  const { status } = req.body; // 'approved' or 'rejected'
 
-  if (typeof isActive !== "boolean") {
-    throw new ApiError(400, "isActive must be a boolean");
+  if (!['approved', 'rejected', 'suspended'].includes(status)) {
+    throw new ApiError(400, "Invalid status. Must be 'active' or 'rejected'");
   }
-
   const shop = await prisma.shopkeeper.update({
     where: { id: Number(shopId) },
     data: {
-      isActive: isActive
+      isActive: status === 'approved' ? true : false,
+      status: status
     }
   });
 
-  res.status(200).json(new ApiResponse(200, `Shop ${isActive ? 'activated' : 'deactivated'} successfully`, shop));
+  res.status(200).json(new ApiResponse(200, `Shop ${status} successfully`, shop));
 });
 
 const getAllShopAddresses = asyncHandler(async (req, res) => {
@@ -440,7 +483,8 @@ export {
   updateGlobalProduct,
   toggleGlobalProductStatus,
   toggleShopProductStatus,
-  updateProductCategory
+  updateProductCategory,
+  getShopsPendingVerification
 };
 
 /* ################ Product Management ################ */
