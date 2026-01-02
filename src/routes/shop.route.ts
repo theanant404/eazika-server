@@ -61,7 +61,7 @@ order.put("/order/status/:orderId", shop.updateOrderStatus);
 // ========== Rider Management Routes ==========
 router.get("/get-riders", isShopkeeper, shop.getShopRiders);
 router.patch("/toggle-rider-status", isShopkeeper, shop.approveRider);
-router.delete("/reject-rider", isShopkeeper, shop.rejectRider);
+router.delete("/reject-rider/:riderId", isShopkeeper, shop.rejectRider);
 router.patch("/suspend-rider", isShopkeeper, shop.suspendRider);
 router.get("/riders/analytics", isShopkeeper, shop.getRiderAnalytics);
 

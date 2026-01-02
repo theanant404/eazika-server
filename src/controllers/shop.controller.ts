@@ -1438,12 +1438,12 @@ const approveRider = asyncHandler(async (req, res) => {
 
 const rejectRider = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
-  const { riderId } = req.body;
+  const { riderId } = req.params;
 
   // Verify shopkeeper owns this rider request
   const rider = await prisma.deliveryBoy.findFirst({
     where: {
-      id: riderId,
+      id: Number(riderId),
       shopkeeper: { userId: req.user.id },
     },
   });
@@ -1454,7 +1454,7 @@ const rejectRider = asyncHandler(async (req, res) => {
   // If we delete DeliveryBoy, user role stays "delivery_boy". We should probably revert it to "user".
 
   await prisma.$transaction(async (tx) => {
-    await tx.deliveryBoy.delete({ where: { id: riderId } });
+    await tx.deliveryBoy.delete({ where: { id: Number(riderId) } });
     await tx.user.update({
       where: { id: rider.userId },
       data: { role: "user" },
