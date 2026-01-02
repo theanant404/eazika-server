@@ -140,10 +140,10 @@ model Shopkeeper {
   gstNumber     String?      @unique @map("gst_number")
   isActive      Boolean      @default(true) @map("is_active")
   deactivatedAt DateTime?    @map("deactivated_at")
-
+  status        String       @default("pending") @map("status")
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   // Relations
   user         User               @relation(fields: userId, references: id)
