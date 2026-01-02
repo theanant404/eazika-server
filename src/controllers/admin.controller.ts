@@ -188,7 +188,7 @@ const getAllShops = asyncHandler(async (req, res) => {
 
 const getShopsPendingVerification = asyncHandler(async (req, res) => {
   const filterStatus = req.query.status as string; // optional filter:'all', 'pending', 'rejected'
-  console.log("Filter Status:", filterStatus);
+  // console.log("Filter Status:", filterStatus);
   const shops = await prisma.shopkeeper.findMany({
     where: { status: filterStatus && filterStatus !== 'all' ? filterStatus : undefined },
     orderBy: { createdAt: 'desc' },
