@@ -1411,8 +1411,11 @@ const getShopRiders = asyncHandler(async (req, res) => {
 
 const approveRider = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
-  const { riderId } = req.body;
+  const { riderId, status } = req.body;
 
+  if (!["approved", "suspended", "rejected",].includes(status)) {
+    throw new ApiError(400, "Invalid status value");
+  }
   // Verify shopkeeper owns this rider request
   const rider = await prisma.deliveryBoy.findFirst({
     where: {
@@ -1424,7 +1427,10 @@ const approveRider = asyncHandler(async (req, res) => {
 
   const updated = await prisma.deliveryBoy.update({
     where: { id: riderId },
-    data: { isVerified: true, status: "active" },
+    data: {
+      isVerified: status === "approved" ? true : false,
+      status: status
+    }
   });
 
   return res.status(200).json(new ApiResponse(200, "Rider approved", updated));
