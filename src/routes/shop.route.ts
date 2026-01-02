@@ -61,6 +61,7 @@ order.put("/order/status/:orderId", shop.updateOrderStatus);
 router.get("/get-riders", isShopkeeper, shop.getShopRiders);
 router.patch("/approve-rider", isShopkeeper, shop.approveRider);
 router.delete("/reject-rider", isShopkeeper, shop.rejectRider);
+router.patch("/suspend-rider", isShopkeeper, shop.suspendRider);
 router.get("/riders/analytics", isShopkeeper, shop.getRiderAnalytics);
 
 export default router;

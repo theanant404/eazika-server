@@ -230,6 +230,8 @@ model DeliveryBoy {
   user       User       @relation(fields: [userId], references: [id])
   shopkeeper Shopkeeper @relation(fields: [shopkeeperId], references: [id])
   orders     Order[]
+  // rider verification 
+  status     String     @default("pending")
 
   @@map("delivery_boys")
 }

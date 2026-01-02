@@ -1357,14 +1357,41 @@ const getShopRiders = asyncHandler(async (req, res) => {
   if (status === "pending") whereClause.isVerified = false;
   if (status === "verified") whereClause.isVerified = true;
 
+  // Fetch all riders with all registration info
   const riders = await prisma.deliveryBoy.findMany({
     where: whereClause,
     include: {
-      user: { select: { id: true, name: true, phone: true, image: true } },
+      user: { select: { id: true, name: true, phone: true, image: true, email: true, createdAt: true, updatedAt: true, role: true } },
+      // Add more includes if you have more info in deliveryBoy model (e.g., address, documents, etc.)
     },
   });
 
-  return res.status(200).json(new ApiResponse(200, "Riders fetched", riders));
+  // For each rider, fetch order stats
+  const riderStats = await Promise.all(
+    riders.map(async (rider) => {
+      // Orders where this deliveryBoy is assigned
+      const [
+        totalAccepted,
+        totalDelivered,
+        totalCancelled
+      ] = await prisma.$transaction([
+        prisma.order.count({ where: { assignedDeliveryBoyId: rider.id } }),
+        prisma.order.count({ where: { assignedDeliveryBoyId: rider.id, status: "delivered" } }),
+        prisma.order.count({ where: { assignedDeliveryBoyId: rider.id, status: "cancelled" } }),
+      ]);
+
+      // Merge all info
+      return {
+        ...rider,
+        user: rider.user,
+        totalOrdersAccepted: totalAccepted || 0,
+        totalOrdersDelivered: totalDelivered || 0,
+        totalOrdersCancelled: totalCancelled || 0,
+      };
+    })
+  );
+  // console.log("Rider stats:", riderStats);
+  return res.status(200).json(new ApiResponse(200, "Riders fetched", riderStats));
 });
 
 const approveRider = asyncHandler(async (req, res) => {
@@ -1382,7 +1409,7 @@ const approveRider = asyncHandler(async (req, res) => {
 
   const updated = await prisma.deliveryBoy.update({
     where: { id: riderId },
-    data: { isVerified: true },
+    data: { isVerified: true, status: "active" },
   });
 
   return res.status(200).json(new ApiResponse(200, "Rider approved", updated));
@@ -1417,7 +1444,26 @@ const rejectRider = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, "Rider rejected and removed"));
 });
+const suspendRider = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+  const { riderId } = req.body;
 
+  // Verify shopkeeper owns this rider
+  const rider = await prisma.deliveryBoy.findFirst({
+    where: {
+      id: riderId,
+      shopkeeper: { userId: req.user.id },
+    },
+  });
+  if (!rider) throw new ApiError(404, "Rider not found");
+
+  const updated = await prisma.deliveryBoy.update({
+    where: { id: riderId },
+    data: { status: "suspended", isAvailable: false },
+  });
+
+  return res.status(200).json(new ApiResponse(200, "Rider suspended", updated));
+});
 const getRiderAnalytics = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -1701,7 +1747,8 @@ export {
   updateShopProductStatus,
   updateShopProduct,
   updateStockAndPrice,
-  addShopProductFromGlobleProduct
+  addShopProductFromGlobleProduct,
+  suspendRider
 };
 // Order Management Controllers
 export { getCurrentOrders, getOrderById, updateOrderStatus };
