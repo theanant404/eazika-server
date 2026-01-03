@@ -22,6 +22,7 @@ router.patch("/shops/:shopId/status", adminController.toggleShopStatus);
 // --------- Rider Management Routes ---------
 router.get("/riders/get-all", adminController.getAllRiders);
 router.get("/riders/:riderId/analytics", adminController.getRiderDeliveryAnalytics);
+router.get("/riders/:riderId/order-history", adminController.getRiderOrderHistory);
 
 
 // --------- Order Management Routes ---------

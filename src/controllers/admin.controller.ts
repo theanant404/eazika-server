@@ -878,6 +878,112 @@ const getRiderDeliveryAnalytics = asyncHandler(async (req, res) => {
     })
   );
 });
+
+// Get rider order history by rider ID
+const getRiderOrderHistory = asyncHandler(async (req, res) => {
+  const { riderId } = req.params;
+  if (!riderId || Number.isNaN(Number(riderId))) {
+    throw new ApiError(400, "Valid riderId is required");
+  }
+
+  // Verify rider exists
+  const rider = await prisma.deliveryBoy.findUnique({
+    where: { id: Number(riderId) },
+    select: {
+      id: true,
+      user: {
+        select: {
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
+      shopkeeper: {
+        select: {
+          shopName: true,
+        },
+      },
+    },
+  });
+
+  if (!rider) throw new ApiError(404, "Rider not found");
+
+  // Get order counts
+  const [totalCompleted, totalCanceled, orders] = await prisma.$transaction([
+    prisma.order.count({
+      where: {
+        assignedDeliveryBoyId: Number(riderId),
+        status: "delivered",
+      },
+    }),
+    prisma.order.count({
+      where: {
+        assignedDeliveryBoyId: Number(riderId),
+        status: "cancelled",
+      },
+    }),
+    prisma.order.findMany({
+      where: {
+        assignedDeliveryBoyId: Number(riderId),
+        status: { in: ["delivered", "cancelled"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        totalAmount: true,
+        status: true,
+        createdAt: true,
+        deliveredAt: true,
+        user: {
+          select: {
+            name: true,
+            phone: true,
+          },
+        },
+        address: {
+          select: {
+            line1: true,
+            city: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const formattedOrders = orders.map((order) => ({
+    orderId: order.id,
+    amount: order.totalAmount,
+    status: order.status,
+    dateTime: order.createdAt,
+    deliveredAt: order.deliveredAt || null,
+    customer: {
+      name: order.user.name,
+      phone: order.user.phone,
+    },
+    deliveryAddress: order.address
+      ? `${order.address.line1}, ${order.address.city}`
+      : null,
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Rider order history fetched successfully", {
+      rider: {
+        id: rider.id,
+        name: rider.user.name,
+        phone: rider.user.phone,
+        email: rider.user.email,
+        shopName: rider.shopkeeper.shopName,
+      },
+      summary: {
+        totalCompletedOrders: totalCompleted,
+        totalCanceledOrders: totalCanceled,
+        totalOrders: totalCompleted + totalCanceled,
+      },
+      orders: formattedOrders,
+    })
+  );
+});
+
 const getAllOrders = asyncHandler(async (req, res) => {
   const orders = await prisma.order.findMany({
     include: {
@@ -1019,6 +1125,7 @@ export {
   getLiveMapData,
   getDeliveredAnalytics,
   getRiderDeliveryAnalytics,
+  getRiderOrderHistory,
   getAllGlobalProducts,
   getAllShopProducts,
   getGlobalProductById,
