@@ -1417,6 +1417,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         data: {
           status,
           assignedDeliveryBoyId: deliveryBoy.id,
+          riderAssignedAt: new Date(),
           // deliveryBoy: { connect: { id: deliveryBoy.id } },
         },
       });
