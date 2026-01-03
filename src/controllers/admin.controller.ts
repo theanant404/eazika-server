@@ -596,6 +596,86 @@ const getAllRiders = asyncHandler(async (req, res) => {
 
 
 /* ################ Orders Management ################ */
+const getDeliveredAnalytics = asyncHandler(async (req, res) => {
+  const filter = ((req.query.filter as string) || "daily").toLowerCase();
+
+  const now = new Date();
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+
+  switch (filter) {
+    case "daily":
+      // startDate already set to today 00:00
+      break;
+    case "weekly": {
+      const currentDay = now.getDay(); // 0 (Sun) - 6 (Sat)
+      const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Monday
+      startDate.setDate(diff);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "monthly": {
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "yearly": {
+      startDate.setMonth(0, 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    default:
+      throw new ApiError(400, "Invalid filter. Use daily, weekly, monthly, or yearly");
+  }
+
+  const whereClause = {
+    status: "delivered",
+    createdAt: { gte: startDate },
+  } as const;
+
+  const [summary, deliveredOrders] = await prisma.$transaction([
+    prisma.order.aggregate({
+      where: whereClause,
+      _count: { id: true },
+      _sum: { totalAmount: true },
+    }),
+    prisma.order.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        totalAmount: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  // Build daily buckets for graphing
+  const trendMap: Record<string, { deliveredOrders: number; deliveredAmount: number }> = {};
+  deliveredOrders.forEach((o) => {
+    const dayKey = o.createdAt.toISOString().slice(0, 10); // yyyy-mm-dd
+    if (!trendMap[dayKey]) trendMap[dayKey] = { deliveredOrders: 0, deliveredAmount: 0 };
+    trendMap[dayKey].deliveredOrders += 1;
+    trendMap[dayKey].deliveredAmount += o.totalAmount;
+  });
+
+  const trend = Object.entries(trendMap)
+    .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+    .map(([date, v]) => ({ date, deliveredOrders: v.deliveredOrders, deliveredAmount: v.deliveredAmount }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Delivered analytics fetched", {
+      filter,
+      startDate,
+      endDate: now,
+      metrics: {
+        totalDeliveredOrders: summary._count?.id || 0,
+        totalDeliveredAmount: summary._sum.totalAmount || 0,
+      },
+      trend,
+    })
+  );
+});
 const getAllOrders = asyncHandler(async (req, res) => {
   const orders = await prisma.order.findMany({
     include: {
@@ -735,6 +815,7 @@ export {
   createGlobalProduct,
   createGlobalProductsBulk,
   getLiveMapData,
+  getDeliveredAnalytics,
   getAllGlobalProducts,
   getAllShopProducts,
   getGlobalProductById,

@@ -25,6 +25,7 @@ router.get("/riders/get-all", adminController.getAllRiders);
 
 // --------- Order Management Routes ---------
 router.get("/orders/get-all", adminController.getAllOrders);
+router.get("/orders/delivered/analytics", adminController.getDeliveredAnalytics);
 
 // --------- Product Category Management Routes ---------
 router.get("/products/get-categories", adminController.getAllProductCategories);
