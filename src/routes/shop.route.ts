@@ -51,6 +51,7 @@ product.patch("/update-shop-product-activity/:productId/status", shop.updateShop
 const order = Router();
 router.use("/orders", isShopkeeper, order);
 order.get("/get-current-orders", shop.getCurrentOrders);
+order.get("/get-orders", shop.getOrders);
 order.get("/order/:orderId", shop.getOrderById);
 order.put("/order/status/:orderId", shop.updateOrderStatus);
 // order.get("/get-order-history", shop.getOrderHistory);

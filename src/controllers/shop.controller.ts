@@ -16,6 +16,7 @@ import {
   shopWithGlobalProductSchema,
 } from "../validations/product.validation";
 import { Prisma } from "../generated/prisma/client";
+import type { OrderStatus } from "../generated/prisma/client";
 
 /*  ================================ Shop Management Controllers ============================= */
 const createShop = asyncHandler(async (req, res) => {
@@ -1162,7 +1163,7 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
       itemsPerPage: string;
     }) || {};
   // const statusFilter = req.query.status as string
-  const statusFilter = "pending";
+  const statusFilter: OrderStatus[] = ["pending", "confirmed", "shipped"] as const;
 
   // console.log("Status filter:", statusFilter);
   const currentPage = parseInt(pagination.currentPage || "1");
@@ -1173,8 +1174,86 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
       some: { product: { shopkeeper: { userId: req.user.id } } },
     },
   };
-  if (statusFilter && typeof statusFilter === "string" && statusFilter.length > 0) {
-    baseWhere.status = statusFilter;
+  if (statusFilter && Array.isArray(statusFilter) && statusFilter.length > 0) {
+    baseWhere.status = { in: statusFilter };
+  }
+
+  const [orders, totalCount] = await prisma.$transaction([
+    prisma.order.findMany({
+      where: baseWhere,
+      include: {
+        address: true,
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: itemsPerPage,
+    }),
+    prisma.order.count({
+      where: baseWhere,
+    }),
+  ]);
+
+  const formattedOrders = orders.map((order) => ({
+    id: order.id,
+    customerName: order.address.name,
+    status: order.status,
+    totalAmount: order.totalAmount,
+    createdAt: order.createdAt,
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Orders fetched successfully", {
+      orders: formattedOrders,
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
+      },
+    })
+  );
+});
+
+const getOrders = asyncHandler(async (req, res) => {
+  // write steps to get current orders for the shop
+  // 1. Parse pagination params from query
+  // 2. Fetch orders from DB with pagination
+  // 3. Return orders with pagination info
+
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const pagination =
+    (req.query.pagination as {
+      currentPage: string;
+      itemsPerPage: string;
+    }) || {};
+
+  // Get filter from query parameter, default to "all"
+  const filterParam = (req.query.status as string || "all").toLowerCase();
+
+  // Define all possible order statuses
+  const allStatuses: OrderStatus[] = ["pending", "confirmed", "shipped", "cancelled", "delivered"];
+
+  // Build statusFilter based on filter parameter
+  let statusFilter: OrderStatus[] = allStatuses;
+  if (filterParam !== "all" && filterParam.length > 0) {
+    // If specific status provided, validate and use only that
+    if (allStatuses.includes(filterParam as OrderStatus)) {
+      statusFilter = [filterParam as OrderStatus];
+    }
+  }
+
+  // console.log("Status filter:", statusFilter);
+  const currentPage = parseInt(pagination.currentPage || "1");
+  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const skip = (currentPage - 1) * itemsPerPage;
+  const baseWhere: any = {
+    orderItems: {
+      some: { product: { shopkeeper: { userId: req.user.id } } },
+    },
+  };
+  if (statusFilter && Array.isArray(statusFilter) && statusFilter.length > 0) {
+    baseWhere.status = { in: statusFilter };
   }
 
   const [orders, totalCount] = await prisma.$transaction([
@@ -1773,10 +1852,11 @@ export {
   updateShopProduct,
   updateStockAndPrice,
   addShopProductFromGlobleProduct,
-  suspendRider
+  suspendRider,
+
 };
 // Order Management Controllers
-export { getCurrentOrders, getOrderById, updateOrderStatus };
+export { getCurrentOrders, getOrderById, updateOrderStatus, getOrders };
 
 // Shop Controllers for Riders
 export { getShopRiders, approveRider, rejectRider, getRiderAnalytics };
