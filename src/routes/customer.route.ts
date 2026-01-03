@@ -8,6 +8,9 @@ const router = Router();
 router.get("/cities", customer.getAvailableCities);
 router.get("/products", customer.getProducts);
 router.get("/products/:productId", customer.getProductById);
+router.get("/products/:productId/rating-eligibility", authMiddleware, customer.checkRatingEligibility);
+router.post("/products/:productId/rating", authMiddleware, customer.addProductRating);
+
 
 /* ---------------------- Cart Management Routes ------------------- */
 const cart = Router();
