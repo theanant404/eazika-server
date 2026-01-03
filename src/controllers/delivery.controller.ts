@@ -617,7 +617,7 @@ const toggleAvailability = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const { isOnline } = req.body;
-
+  // console.log(isOnline)
   if (typeof isOnline !== 'boolean') {
     throw new ApiError(400, "isOnline (boolean) is required");
   }
@@ -626,7 +626,8 @@ const toggleAvailability = asyncHandler(async (req, res) => {
     where: { userId: req.user.id },
     data: { isAvailable: isOnline }
   });
-
+  // console.log(deliveryBoy)
+  // console.log("Updated availability to:", deliveryBoy.isAvailable);
   return res.status(200).json(
     new ApiResponse(200, "Availability updated", { isAvailable: deliveryBoy.isAvailable })
   );
