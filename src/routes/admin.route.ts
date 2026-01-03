@@ -14,12 +14,14 @@ router.get("/users/get-all-users", adminController.getAllUsers);
 router.get("/shops/get-all", adminController.getAllShops);
 router.get("/shops/get-pending-verification", adminController.getShopsPendingVerification);
 router.get("/shops/get-all-addresses", adminController.getAllShopAddresses);
+router.get("/shops/:shopId/analytics", adminController.getShopAnalyticsById);
 router.get("/shops/get-all-shops-details", adminController.getShopsDetails);
 router.patch("/shops/:shopId/verify", adminController.verifyShop);
 router.patch("/shops/:shopId/status", adminController.toggleShopStatus);
 // router.get("/shops/get-all-shops-details", adminController.getShopsDetails);
 // --------- Rider Management Routes ---------
 router.get("/riders/get-all", adminController.getAllRiders);
+
 
 // --------- Order Management Routes ---------
 router.get("/orders/get-all", adminController.getAllOrders);

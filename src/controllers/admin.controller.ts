@@ -307,6 +307,182 @@ const getShopsPendingVerification = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, "Pending shops fetched", formattedShops));
 });
+
+// Admin: analytics for a specific shop by id with optional date range
+const getShopAnalyticsById = asyncHandler(async (req, res) => {
+  const { shopId } = req.params;
+  if (!shopId || Number.isNaN(Number(shopId))) {
+    throw new ApiError(400, "Valid shopId is required");
+  }
+
+  // Optional date range filters (ISO strings expected)
+  const startDateRaw = req.query.start as string | undefined;
+  const endDateRaw = req.query.end as string | undefined;
+
+  const dateFilter: any = {};
+  if (startDateRaw) {
+    const d = new Date(startDateRaw);
+    if (isNaN(d.getTime())) throw new ApiError(400, "Invalid start date");
+    dateFilter.gte = d;
+  }
+  if (endDateRaw) {
+    const d = new Date(endDateRaw);
+    if (isNaN(d.getTime())) throw new ApiError(400, "Invalid end date");
+    // include entire end day by setting end to end-of-day
+    d.setHours(23, 59, 59, 999);
+    dateFilter.lte = d;
+  }
+
+  const timeWhere = Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {};
+
+  // Validate shop exists
+  const shop = await prisma.shopkeeper.findUnique({
+    where: { id: Number(shopId) },
+    select: {
+      id: true,
+      shopName: true,
+      shopCategory: true,
+      shopImage: true,
+      isActive: true,
+      status: true,
+      address: {
+        select: {
+          line1: true,
+          line2: true,
+          city: true,
+          state: true,
+          pinCode: true,
+          geoLocation: true,
+        },
+      },
+    },
+  });
+
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  const orderWhere = {
+    orderItems: { some: { product: { shopkeeperId: Number(shopId) } } },
+    ...timeWhere,
+  } as const;
+
+  const [totalOrders, activeOrders, deliveredAgg, orders, riders, customers] = await prisma.$transaction([
+    prisma.order.count({ where: orderWhere }),
+    prisma.order.count({
+      where: {
+        ...orderWhere,
+        status: { notIn: ["delivered", "cancelled"] },
+      },
+    }),
+    prisma.order.aggregate({
+      where: { ...orderWhere, status: "delivered" },
+      _sum: { totalAmount: true },
+    }),
+    prisma.order.findMany({
+      where: orderWhere,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        totalAmount: true,
+        createdAt: true,
+      },
+    }),
+    // Get all riders who delivered for this shop
+    prisma.deliveryBoy.findMany({
+      where: {
+        orders: {
+          some: {
+            ...orderWhere,
+            status: "delivered",
+          },
+        },
+      },
+      distinct: ["id"],
+      include: {
+        user: { select: { id: true, name: true, phone: true, email: true } },
+        _count: { select: { orders: { where: { ...orderWhere, status: "delivered" } } } },
+      },
+    }),
+    // Get all customers who ordered from this shop
+    prisma.user.findMany({
+      where: {
+        orders: { some: orderWhere },
+      },
+      distinct: ["id"],
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        image: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  // Build simple daily trend for graphs (orders count and delivered earnings per day)
+  const trendMap: Record<string, { orders: number; earnings: number }> = {};
+  orders.forEach((o) => {
+    const dayKey = o.createdAt.toISOString().slice(0, 10); // yyyy-mm-dd
+    if (!trendMap[dayKey]) trendMap[dayKey] = { orders: 0, earnings: 0 };
+    trendMap[dayKey].orders += 1;
+    if (o.status === "delivered") {
+      trendMap[dayKey].earnings += o.totalAmount;
+    }
+  });
+
+  const trend = Object.entries(trendMap)
+    .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+    .map(([date, v]) => ({ date, orders: v.orders, earnings: v.earnings }));
+
+  // Format riders data
+  const formattedRiders = riders.map((rider) => ({
+    id: rider.id,
+    name: rider.user.name,
+    phone: rider.user.phone,
+    email: rider.user.email,
+    totalDeliveries: rider._count.orders,
+  }));
+
+  // Format customers data
+  const formattedCustomers = customers.map((customer) => ({
+    id: customer.id,
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    image: customer.image,
+    joinedAt: customer.createdAt,
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Shop analytics fetched", {
+      shop: {
+        id: shop.id,
+        name: shop.shopName,
+        category: shop.shopCategory,
+        image: shop.shopImage?.[0] || null,
+        status: shop.status,
+        isActive: shop.isActive,
+        location:
+          shop.address
+            ? `${shop.address.line1}${shop.address.line2 ? ", " + shop.address.line2 : ""}, ${shop.address.city}, ${shop.address.state}, ${shop.address.pinCode}`
+            : null,
+        geoLocation: shop.address?.geoLocation || null,
+      },
+      metrics: {
+        totalOrders,
+        totalActiveOrders: activeOrders,
+        totalEarnings: deliveredAgg._sum.totalAmount || 0,
+        totalRiders: riders.length,
+        totalCustomers: customers.length,
+      },
+      orders,
+      trend,
+      riders: formattedRiders,
+      customers: formattedCustomers,
+    })
+  );
+});
 const verifyShop = asyncHandler(async (req, res) => {
   const { shopId } = req.params;
   const { status } = req.body; // 'approved' or 'rejected'
@@ -549,6 +725,7 @@ export {
   getAllShops,
   getShopsDetails,
   getAllShopAddresses,
+  getShopAnalyticsById,
   verifyShop,
   toggleShopStatus,
   getAllRiders,
@@ -699,7 +876,7 @@ const updateGlobalProduct = asyncHandler(async (req, res) => {
 const toggleGlobalProductStatus = asyncHandler(async (req, res) => {
   const { productId } = req.params;
   const { isActive } = req.body;
-  console.log(productId)
+  // console.log(productId)
   if (typeof isActive !== "boolean") {
     throw new ApiError(400, "isActive must be a boolean");
   }
