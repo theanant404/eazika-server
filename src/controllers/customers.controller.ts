@@ -6,6 +6,215 @@ import { Prisma } from "../generated/prisma/client";
 
 /* ================================= Customer Products Controllers ============================ */
 
+// Get all product categories
+const getProductCategories = asyncHandler(async (_req, res) => {
+  const categories = await prisma.productCategory.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Product categories fetched", categories));
+});
+
+// Get products by filter (all, category, shop, toprated, newest, price range)
+const getProductsByFilter = asyncHandler(async (req, res) => {
+  const filter = ((req.query.filter as string) || "all").toLowerCase();
+  console.log(filter)
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "10");
+  const skip = (page - 1) * limit;
+
+  let whereClause: any = { isActive: true };
+
+  // Apply filter logic
+  switch (filter) {
+    case "all":
+      // Return all products (no additional filter)
+      break;
+
+    case "category": {
+      const categoryId = req.query.categoryId as string;
+      if (!categoryId || Number.isNaN(Number(categoryId))) {
+        throw new ApiError(400, "Valid categoryId is required for category filter");
+      }
+      whereClause.productCategoryId = Number(categoryId);
+      break;
+    }
+
+    case "shop": {
+      const shopId = req.query.shopId as string;
+      if (!shopId || Number.isNaN(Number(shopId))) {
+        throw new ApiError(400, "Valid shopId is required for shop filter");
+      }
+      whereClause.shopkeeperId = Number(shopId);
+      break;
+    }
+
+    case "toprated": {
+      // Will be handled after fetching and sorting
+      break;
+    }
+
+    case "newest": {
+      // Will be handled with orderBy
+      break;
+    }
+
+    case "price": {
+      const minPrice = req.query.minPrice as string;
+      const maxPrice = req.query.maxPrice as string;
+
+      if (minPrice && !Number.isNaN(Number(minPrice))) {
+        whereClause.prices = {
+          some: {
+            price: { gte: Number(minPrice) },
+          },
+        };
+      }
+
+      if (maxPrice && !Number.isNaN(Number(maxPrice))) {
+        if (whereClause.prices) {
+          whereClause.prices.some.price = {
+            ...whereClause.prices.some.price,
+            lte: Number(maxPrice),
+          };
+        } else {
+          whereClause.prices = {
+            some: {
+              price: { lte: Number(maxPrice) },
+            },
+          };
+        }
+      }
+      break;
+    }
+
+    case "city": {
+      const city = req.query.city as string;
+      if (!city) {
+        throw new ApiError(400, "City is required for city filter");
+      }
+      whereClause.shopkeeper = {
+        address: {
+          city: { equals: city, mode: "insensitive" },
+          isDeleted: false,
+        },
+      };
+      break;
+    }
+
+    default:
+      throw new ApiError(
+        400,
+        "Invalid filter. Use: all, category, shop, toprated, newest, price, or city"
+      );
+  }
+
+  // Fetch products
+  const [products, totalCount] = await prisma.$transaction([
+    prisma.shopProduct.findMany({
+      where: whereClause,
+      include: {
+        prices: {
+          select: {
+            id: true,
+            price: true,
+            discount: true,
+            weight: true,
+            unit: true,
+          },
+        },
+        globalProduct: {
+          include: {
+            productPrices: {
+              select: {
+                id: true,
+                price: true,
+                discount: true,
+                weight: true,
+                unit: true,
+              },
+            },
+          },
+        },
+        productCategories: true,
+        ratings: {
+          select: { rating: true },
+        },
+        shopkeeper: {
+          select: { id: true, shopName: true },
+        },
+      },
+      skip,
+      take: limit,
+      orderBy:
+        filter === "newest"
+          ? { createdAt: "desc" }
+          : filter === "toprated"
+            ? undefined // Will sort after
+            : { id: "asc" },
+    }),
+    prisma.shopProduct.count({ where: whereClause }),
+  ]);
+
+  // Format products
+  const formattedProducts = products.map((p) => {
+    const isGlobal = p.isGlobalProduct;
+    const prices =
+      p.prices?.length
+        ? p.prices
+        : isGlobal && p.globalProduct?.productPrices?.length
+          ? p.globalProduct.productPrices
+          : [];
+
+    const avgRating =
+      p.ratings.length > 0
+        ? p.ratings.reduce((sum, r) => sum + r.rating, 0) / p.ratings.length
+        : 0;
+
+    return {
+      id: p.id,
+      isGlobalProduct: p.isGlobalProduct,
+      category: p.productCategories.name,
+      brand: isGlobal ? p.globalProduct?.brand : p.brand,
+      name: isGlobal ? p.globalProduct?.name : p.name,
+      description: isGlobal ? p.globalProduct?.description : p.description,
+      images: isGlobal ? p.globalProduct?.images : p.images,
+      prices: prices,
+      shop: {
+        id: p.shopkeeper.id,
+        name: p.shopkeeper.shopName,
+      },
+      rating: {
+        average: parseFloat(avgRating.toFixed(2)),
+        count: p.ratings.length,
+      },
+    };
+  });
+
+  // Sort by rating if toprated filter
+  if (filter === "toprated") {
+    formattedProducts.sort(
+      (a, b) => b.rating.average - a.rating.average
+    );
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Products fetched successfully", {
+      products: formattedProducts,
+      filter: filter,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit),
+      },
+    })
+  );
+});
+
 const getProducts = asyncHandler(async (req, res) => {
   // 1. Pagination Setup
   const pagination =
@@ -977,9 +1186,11 @@ const addProductRating = asyncHandler(async (req, res) => {
 });
 
 export {
+  getProductCategories,
   getProducts,
+  getProductsByFilter,
   getProductById,
-  getAvailableCities, // New Export
+  getAvailableCities,
   addToCart,
   getCart,
   updateCartItem,

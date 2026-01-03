@@ -6,7 +6,9 @@ const router = Router();
 
 /* ----------- Product Browsing Routes ----------- */
 router.get("/cities", customer.getAvailableCities);
+router.get("/products/categories", customer.getProductCategories);
 router.get("/products", customer.getProducts);
+router.get("/products/filter", customer.getProductsByFilter);
 router.get("/products/:productId", customer.getProductById);
 router.get("/products/:productId/rating-eligibility", authMiddleware, customer.checkRatingEligibility);
 router.post("/products/:productId/rating", authMiddleware, customer.addProductRating);
