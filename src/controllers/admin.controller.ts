@@ -1107,6 +1107,96 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
   );
 });
 
+// Get active shops and active orders locations for live tracking
+const getActiveLocations = asyncHandler(async (req, res) => {
+  const [activeShops, activeOrders] = await prisma.$transaction([
+    // Get all active shops with geo location
+    prisma.shopkeeper.findMany({
+      where: {
+        isActive: true,
+        status: "approved",
+        address: {
+          geoLocation: { not: null },
+        },
+      },
+      select: {
+        id: true,
+        shopName: true,
+        shopCategory: true,
+        address: {
+          select: {
+            geoLocation: true,
+          },
+        },
+      },
+    }),
+    // Get all active orders (not delivered/cancelled) with user location
+    prisma.order.findMany({
+      where: {
+        status: { notIn: ["delivered", "cancelled"] },
+        address: {
+          geoLocation: { not: null },
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        address: {
+          select: {
+            geoLocation: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  // Format shops data
+  const formattedShops = activeShops.map((shop) => {
+    const coords = shop.address!.geoLocation!.split(",");
+    return {
+      id: shop.id,
+      name: shop.shopName,
+      category: shop.shopCategory,
+      geoLocation: shop.address!.geoLocation,
+      latitude: parseFloat(coords[0]?.trim() || "0"),
+      longitude: parseFloat(coords[1]?.trim() || "0"),
+      type: "shop",
+    };
+  });
+
+  // Format active orders data
+  const formattedOrders = activeOrders.map((order) => {
+    const coords = order.address!.geoLocation!.split(",");
+    return {
+      orderId: order.id,
+      userId: order.user.id,
+      userName: order.user.name,
+      orderStatus: order.status,
+      geoLocation: order.address!.geoLocation,
+      latitude: parseFloat(coords[0]?.trim() || "0"),
+      longitude: parseFloat(coords[1]?.trim() || "0"),
+      type: "order",
+    };
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Active locations fetched successfully", {
+      shops: formattedShops,
+      orders: formattedOrders,
+      summary: {
+        totalActiveShops: formattedShops.length,
+        totalActiveOrders: formattedOrders.length,
+      },
+    })
+  );
+});
+
 export {
   getDashboardStats,
   getAllUsers,
@@ -1126,6 +1216,7 @@ export {
   getDeliveredAnalytics,
   getRiderDeliveryAnalytics,
   getRiderOrderHistory,
+  getActiveLocations,
   getAllGlobalProducts,
   getAllShopProducts,
   getGlobalProductById,

@@ -6,6 +6,7 @@ const router = Router();
 // --------- Dashboard Stats ---------
 router.get("/stats", adminController.getDashboardStats);
 router.get("/map/live-data", adminController.getLiveMapData);
+router.get("/map/active-locations", adminController.getActiveLocations);
 
 // --------- Admin User Management Routes ---------
 router.get("/users/get-all-users", adminController.getAllUsers);
