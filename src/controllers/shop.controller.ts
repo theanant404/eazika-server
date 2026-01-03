@@ -1462,7 +1462,7 @@ const getShopRiders = asyncHandler(async (req, res) => {
       // Add more includes if you have more info in deliveryBoy model (e.g., address, documents, etc.)
     },
   });
-
+  console.log(`Fetched ${riders.length} riders for shopkeeper ${shopkeeper.id}`);
   // For each rider, fetch order stats
   const riderStats = await Promise.all(
     riders.map(async (rider) => {
@@ -1470,12 +1470,17 @@ const getShopRiders = asyncHandler(async (req, res) => {
       const [
         totalAccepted,
         totalDelivered,
-        totalCancelled
+        totalCancelled,
+        assignedOrdersCount
       ] = await prisma.$transaction([
         prisma.order.count({ where: { assignedDeliveryBoyId: rider.id } }),
         prisma.order.count({ where: { assignedDeliveryBoyId: rider.id, status: "delivered" } }),
         prisma.order.count({ where: { assignedDeliveryBoyId: rider.id, status: "cancelled" } }),
+        prisma.order.count({ where: { assignedDeliveryBoyId: rider.id, status: { notIn: ["delivered", "cancelled"] } } }),
       ]);
+
+      // Rider is busy if they have assigned orders (not delivered or cancelled)
+      const isBusy = assignedOrdersCount > 0;
 
       // Merge all info
       return {
@@ -1484,11 +1489,20 @@ const getShopRiders = asyncHandler(async (req, res) => {
         totalOrdersAccepted: totalAccepted || 0,
         totalOrdersDelivered: totalDelivered || 0,
         totalOrdersCancelled: totalCancelled || 0,
+        isBusy,
+        assignedOrdersCount,
       };
     })
   );
+
+  // Count total busy riders
+  const totalBusyRiders = riderStats.filter(rider => rider.isBusy).length;
+
   // console.log("Rider stats:", riderStats);
-  return res.status(200).json(new ApiResponse(200, "Riders fetched", riderStats));
+  return res.status(200).json(new ApiResponse(200, "Riders fetched", {
+    riders: riderStats,
+    totalBusyRiders,
+  }));
 });
 
 const approveRider = asyncHandler(async (req, res) => {
