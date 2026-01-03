@@ -429,8 +429,10 @@ model Order {
   status                OrderStatus   @default(pending) @map("order_status")
 
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  riderAssignedAt DateTime? @map("rider_assigned_at")
+  deliveredAt     DateTime? @map("delivered_at")
 
   // Relationships
   orderItems  OrderItem[]
