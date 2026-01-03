@@ -5,6 +5,8 @@ import {
   globalProductSchema,
   globalProductsSchema,
 } from "../validations/product.validation";
+import * as fs from "fs";
+import * as path from "path";
 
 /* ################ Shops Overview (Approved & Suspended) ################ */
 const getShopsDetails = asyncHandler(async (req, res) => {
@@ -1107,6 +1109,105 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
   );
 });
 
+// Upload products from JSON file (eaz_products.json) one by one
+const uploadProductsFromJson = asyncHandler(async (req, res) => {
+  try {
+    // Read the JSON file from project root
+    const jsonFilePath = path.join(process.cwd(), "eaz_products.json");
+
+    if (!fs.existsSync(jsonFilePath)) {
+      throw new ApiError(404, "eaz_products.json file not found in project root");
+    }
+
+    // Read and parse JSON file
+    const fileContent = fs.readFileSync(jsonFilePath, "utf-8");
+    const productsFromJson = JSON.parse(fileContent);
+
+    if (!Array.isArray(productsFromJson)) {
+      throw new ApiError(400, "JSON file must contain an array of products");
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: any[] = [];
+
+    // Process products one by one
+    for (const product of productsFromJson) {
+      try {
+        // Validate required fields
+        if (!product.name) {
+          failedCount++;
+          errors.push({
+            product: product.name || "Unknown",
+            error: "Product name is required",
+          });
+          continue;
+        }
+
+        // Get category ID from JSON (catogery field)
+        const categoryId = product.catogery ? Number(product.catogery) : null;
+
+        // Check if category exists
+        if (categoryId) {
+          const categoryExists = await prisma.productCategory.findUnique({
+            where: { id: categoryId },
+          });
+
+          if (!categoryExists) {
+            failedCount++;
+            errors.push({
+              product: product.name,
+              error: `Category with ID ${categoryId} does not exist`,
+            });
+            continue;
+          }
+        }
+
+        // Create product in database
+        const createdProduct = await prisma.globalProduct.create({
+          data: {
+            name: product.name,
+            brand: product.brand || null,
+            description: product.description || null,
+            images: product.images || [],
+            productCategoryId: categoryId!,
+            isActive: true,
+          },
+        });
+
+        successCount++;
+      } catch (error: any) {
+        failedCount++;
+        errors.push({
+          product: product.name || "Unknown",
+          error: error.message || "Unknown error",
+        });
+      }
+    }
+
+    // Return response with summary
+    return res.status(200).json(
+      new ApiResponse(200, "Products uploaded from JSON file", {
+        summary: {
+          totalProducts: productsFromJson.length,
+          successfullyCreated: successCount,
+          failed: failedCount,
+        },
+        errors: errors.length > 0 ? errors : null,
+        message:
+          failedCount === 0
+            ? `All ${successCount} products uploaded successfully!`
+            : `${successCount} products created, ${failedCount} failed`,
+      })
+    );
+  } catch (error: any) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(500, error.message || "Failed to upload products from JSON");
+  }
+});
+
 // Get active shops and active orders locations for live tracking
 const getActiveLocations = asyncHandler(async (req, res) => {
   const [activeShops, activeOrders] = await prisma.$transaction([
@@ -1212,6 +1313,7 @@ export {
   getAllProductCategories,
   createGlobalProduct,
   createGlobalProductsBulk,
+  uploadProductsFromJson,
   getLiveMapData,
   getDeliveredAnalytics,
   getRiderDeliveryAnalytics,

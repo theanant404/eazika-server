@@ -42,6 +42,11 @@ router.post(
   adminController.createGlobalProductsBulk
 );
 
+router.post(
+  "/products/upload-from-json",
+  adminController.uploadProductsFromJson
+);
+
 // Global Products Management
 router.get("/products/get-all-global-product", adminController.getAllGlobalProducts);
 router.get("/products/global/:id", adminController.getGlobalProductById);
