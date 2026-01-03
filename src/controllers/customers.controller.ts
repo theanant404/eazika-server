@@ -689,6 +689,7 @@ const trackOrder = asyncHandler(async (req, res) => {
           user: true,
         },
       },
+
     },
   });
 
@@ -712,6 +713,7 @@ const trackOrder = asyncHandler(async (req, res) => {
     totalProducts: order.totalProducts,
     totalQuantity,
     paymentMethod: order.paymentMethod,
+    deliveryOtp: order.deliveryOtp,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     address: order.address
