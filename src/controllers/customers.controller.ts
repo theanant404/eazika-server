@@ -480,6 +480,9 @@ const createOrder = asyncHandler(async (req, res) => {
     req.body
   );
 
+  // Generate a 4-digit delivery OTP for the order
+  const deliveryOtp = Math.floor(1000 + Math.random() * 9000);
+
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const order = await prisma.$transaction(
@@ -555,6 +558,7 @@ const createOrder = asyncHandler(async (req, res) => {
           paymentMethod: paymentMethod,
           totalAmount,
           totalProducts: items.length,
+          deliveryOtp,
           orderItems: { createMany: { data: items } },
         },
       });

@@ -427,6 +427,7 @@ model Order {
   cancelBy              CancelBy?     @map("cancel_by")
   cancelReason          String?       @map("cancel_reason")
   status                OrderStatus   @default(pending) @map("order_status")
+  deliveryOtp           Int?          @default(4829) @map("delivery_otp")
 
   // Timestamps
   createdAt       DateTime  @default(now())
