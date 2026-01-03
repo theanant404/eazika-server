@@ -573,7 +573,46 @@ const getAllShopAddresses = asyncHandler(async (req, res) => {
 const getAllRiders = asyncHandler(async (req, res) => {
   const riders = await prisma.deliveryBoy.findMany({
     include: {
-      user: { select: { name: true, phone: true, email: true } },
+      user: {
+        select: {
+          name: true,
+          phone: true,
+          email: true,
+          address: {
+            where: { isDeleted: false },
+            take: 1,
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              line1: true,
+              line2: true,
+              city: true,
+              state: true,
+              pinCode: true,
+              geoLocation: true,
+            },
+          },
+        },
+      },
+      shopkeeper: {
+        select: {
+          shopName: true,
+          address: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              line1: true,
+              line2: true,
+              city: true,
+              state: true,
+              pinCode: true,
+              geoLocation: true,
+            },
+          },
+        },
+      },
       _count: {
         select: { orders: { where: { status: 'delivered' } } }
       }
@@ -587,6 +626,10 @@ const getAllRiders = asyncHandler(async (req, res) => {
     email: rider.user.email,
     status: rider.isAvailable ? 'available' : 'busy',
     totalDeliveries: rider._count.orders,
+    shopName: rider.shopkeeper.shopName,
+    address: (rider.user.address && rider.user.address[0])
+      ? rider.user.address[0]
+      : rider.shopkeeper.address,
     rating: 4.8 // Mock rating as it is not in schema yet
   }));
 
