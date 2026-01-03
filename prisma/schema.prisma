@@ -484,7 +484,7 @@ model PushNotification {
   deviceType     DivicType @default(other) @map("device_type")
   createdAt      DateTime  @default(now())
 
-  user                      User                      @relation(fields: [id], references: [id])
+  user                      User                      @relation(fields: [userId], references: [id])
   pushNotificationHistories PushNotificationHistory[]
 
   @@map("push_notifications")
