@@ -17,7 +17,7 @@ const getVapidPublicKey = asyncHandler(async (_, res) => {
 
 const subscribePushNotification = asyncHandler(async (req, res) => {
   const subscription = SubscriptionSchema.parse(req.body);
-  console.log("Received subscription:", subscription);
+  // console.log("Received subscription:", subscription);
   const subscribe = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existingSubscription = await tx.pushNotification.findFirst({
       where: { endpoint: subscription.endpoint },
@@ -53,7 +53,7 @@ const sendNotificationbyUserId = asyncHandler(async (req, res) => {
   if (!userId) throw new ApiError(400, "User ID is required");
   const payload = req.body;
   const pushResult = await sendPushNotification(userId, payload);
-  console.log("Push Result:", pushResult);
+  // console.log("Push Result:", pushResult);
   if (![200, 201].includes(pushResult.statusCode))
     throw new ApiError(500, "Failed to send notification");
 

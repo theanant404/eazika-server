@@ -18,98 +18,45 @@ const getProductCategories = asyncHandler(async (_req, res) => {
     .json(new ApiResponse(200, "Product categories fetched", categories));
 });
 
-// Get products by filter (all, category, shop, toprated, newest, price range)
+// Get products by filter (supports "all" or numeric category id via filter, plus legacy modes)
 const getProductsByFilter = asyncHandler(async (req, res) => {
-  const filter = ((req.query.filter as string) || "all").toLowerCase();
-  console.log(filter)
+  const rawFilter = (req.query.filter as string) || "all";
+  console.log(rawFilter)
+  const filter = rawFilter.toLowerCase();
   const page = parseInt((req.query.page as string) || "1");
   const limit = parseInt((req.query.limit as string) || "10");
   const skip = (page - 1) * limit;
 
   let whereClause: any = { isActive: true };
+  let appliedFilter = filter;
+
+  // If filter is a numeric value, treat it as category id (quick path)
+  const numericFilter = Number(rawFilter);
+  if (!Number.isNaN(numericFilter) && rawFilter !== "all") {
+    whereClause.productCategoryId = numericFilter;
+    appliedFilter = "category";
+  }
 
   // Apply filter logic
-  switch (filter) {
-    case "all":
-      // Return all products (no additional filter)
-      break;
+  if (appliedFilter === filter) {
+    switch (filter) {
+      case "all":
+        // Return all products (no additional filter)
+        break;
 
-    case "category": {
-      const categoryId = req.query.categoryId as string;
-      if (!categoryId || Number.isNaN(Number(categoryId))) {
-        throw new ApiError(400, "Valid categoryId is required for category filter");
-      }
-      whereClause.productCategoryId = Number(categoryId);
-      break;
-    }
-
-    case "shop": {
-      const shopId = req.query.shopId as string;
-      if (!shopId || Number.isNaN(Number(shopId))) {
-        throw new ApiError(400, "Valid shopId is required for shop filter");
-      }
-      whereClause.shopkeeperId = Number(shopId);
-      break;
-    }
-
-    case "toprated": {
-      // Will be handled after fetching and sorting
-      break;
-    }
-
-    case "newest": {
-      // Will be handled with orderBy
-      break;
-    }
-
-    case "price": {
-      const minPrice = req.query.minPrice as string;
-      const maxPrice = req.query.maxPrice as string;
-
-      if (minPrice && !Number.isNaN(Number(minPrice))) {
-        whereClause.prices = {
-          some: {
-            price: { gte: Number(minPrice) },
-          },
-        };
-      }
-
-      if (maxPrice && !Number.isNaN(Number(maxPrice))) {
-        if (whereClause.prices) {
-          whereClause.prices.some.price = {
-            ...whereClause.prices.some.price,
-            lte: Number(maxPrice),
-          };
-        } else {
-          whereClause.prices = {
-            some: {
-              price: { lte: Number(maxPrice) },
-            },
-          };
+      case "category": {
+        const categoryId = req.query.categoryId as string;
+        if (!categoryId || Number.isNaN(Number(categoryId))) {
+          throw new ApiError(400, "Valid categoryId is required for category filter");
         }
+        whereClause.productCategoryId = Number(categoryId);
+        break;
       }
-      break;
-    }
 
-    case "city": {
-      const city = req.query.city as string;
-      if (!city) {
-        throw new ApiError(400, "City is required for city filter");
-      }
-      whereClause.shopkeeper = {
-        address: {
-          city: { equals: city, mode: "insensitive" },
-          isDeleted: false,
-        },
-      };
-      break;
+      default:
+        // For this requirement, only "all" and numeric/category are supported.
+        throw new ApiError(400, "Invalid filter. Use 'all' or provide a category id");
     }
-
-    default:
-      throw new ApiError(
-        400,
-        "Invalid filter. Use: all, category, shop, toprated, newest, price, or city"
-      );
   }
 
   // Fetch products
@@ -204,7 +151,7 @@ const getProductsByFilter = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(200, "Products fetched successfully", {
       products: formattedProducts,
-      filter: filter,
+      filter: appliedFilter,
       pagination: {
         page,
         limit,
