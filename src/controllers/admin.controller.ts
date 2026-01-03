@@ -719,6 +719,165 @@ const getDeliveredAnalytics = asyncHandler(async (req, res) => {
     })
   );
 });
+
+// Rider-specific delivery analytics for graphing
+const getRiderDeliveryAnalytics = asyncHandler(async (req, res) => {
+  const { riderId } = req.params;
+  if (!riderId || Number.isNaN(Number(riderId))) {
+    throw new ApiError(400, "Valid riderId is required");
+  }
+
+  const filter = ((req.query.filter as string) || "weekly").toLowerCase();
+  const now = new Date();
+  let startDate: Date | undefined = new Date();
+  startDate.setHours(0, 0, 0, 0);
+
+  switch (filter) {
+    case "daily":
+      // startDate already set to today 00:00
+      break;
+    case "weekly": {
+      const currentDay = now.getDay();
+      const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+      startDate.setDate(diff);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "monthly": {
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "yearly": {
+      startDate.setMonth(0, 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "all":
+      startDate = undefined; // No date filter for all-time data
+      break;
+    default:
+      throw new ApiError(400, "Invalid filter. Use daily, weekly, monthly, yearly, or all");
+  }
+
+  // Rider info with shop and address fallback
+  const rider = await prisma.deliveryBoy.findUnique({
+    where: { id: Number(riderId) },
+    select: {
+      id: true,
+      isAvailable: true,
+      user: {
+        select: {
+          name: true,
+          phone: true,
+          email: true,
+          address: {
+            where: { isDeleted: false },
+            take: 1,
+            select: {
+              line1: true,
+              line2: true,
+              city: true,
+              state: true,
+              pinCode: true,
+              geoLocation: true,
+            },
+          },
+        },
+      },
+      shopkeeper: {
+        select: {
+          shopName: true,
+          address: {
+            select: {
+              line1: true,
+              line2: true,
+              city: true,
+              state: true,
+              pinCode: true,
+              geoLocation: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!rider) throw new ApiError(404, "Rider not found");
+
+  const whereClause = {
+    assignedDeliveryBoyId: Number(riderId),
+    status: "delivered",
+    ...(startDate ? { createdAt: { gte: startDate } } : {}),
+  } as const;
+
+  const [summary, deliveredOrders] = await prisma.$transaction([
+    prisma.order.aggregate({
+      where: whereClause,
+      _count: { id: true },
+      _sum: { totalAmount: true },
+    }),
+    prisma.order.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        totalAmount: true,
+        createdAt: true,
+        riderAssignedAt: true,
+        deliveredAt: true,
+      },
+    }),
+  ]);
+
+  // Build daily buckets for graphing
+  const trendMap: Record<string, { deliveredOrders: number; deliveredAmount: number }> = {};
+  deliveredOrders.forEach((o) => {
+    const dayKey = o.createdAt.toISOString().slice(0, 10);
+    if (!trendMap[dayKey]) trendMap[dayKey] = { deliveredOrders: 0, deliveredAmount: 0 };
+    trendMap[dayKey].deliveredOrders += 1;
+    trendMap[dayKey].deliveredAmount += o.totalAmount;
+  });
+
+  const trend = Object.entries(trendMap)
+    .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+    .map(([date, v]) => ({ date, deliveredOrders: v.deliveredOrders, deliveredAmount: v.deliveredAmount }));
+
+  // Average delivery duration for this rider
+  let durationSumMs = 0;
+  let durationCount = 0;
+  deliveredOrders.forEach((o) => {
+    if (o.riderAssignedAt && o.deliveredAt) {
+      durationSumMs += o.deliveredAt.getTime() - o.riderAssignedAt.getTime();
+      durationCount += 1;
+    }
+  });
+  const averageDeliveryDurationMinutes = durationCount
+    ? Math.round((durationSumMs / durationCount / 1000 / 60) * 100) / 100
+    : null;
+
+  return res.status(200).json(
+    new ApiResponse(200, "Rider delivery analytics fetched", {
+      rider: {
+        id: rider.id,
+        name: rider.user.name,
+        phone: rider.user.phone,
+        email: rider.user.email,
+        shopName: rider.shopkeeper.shopName,
+        address: rider.user.address?.[0] || rider.shopkeeper.address || null,
+      },
+      filter,
+      startDate: startDate || null,
+      endDate: now,
+      metrics: {
+        totalDeliveredOrders: summary._count?.id || 0,
+        totalDeliveredAmount: summary._sum.totalAmount || 0,
+        averageDeliveryDurationMinutes,
+      },
+      trend,
+    })
+  );
+});
 const getAllOrders = asyncHandler(async (req, res) => {
   const orders = await prisma.order.findMany({
     include: {
@@ -859,6 +1018,7 @@ export {
   createGlobalProductsBulk,
   getLiveMapData,
   getDeliveredAnalytics,
+  getRiderDeliveryAnalytics,
   getAllGlobalProducts,
   getAllShopProducts,
   getGlobalProductById,
