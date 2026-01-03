@@ -45,7 +45,12 @@ router.put(
   auth.isDeliveryBoy,
   delivery.updateDeliveryProfile
 ); // PUT /api/v2/delivery/update-delivery-profile - Update delivery profile (vehicle details, PAN, license images)
-
+router.put(
+  "/update-avatar",
+  auth.authMiddleware,
+  auth.isDeliveryBoy,
+  delivery.updateAvatar
+); // PUT /api/v2/delivery/update-avatar - Update delivery partner avatar image
 /**
  * Order Assignment Routes
  *

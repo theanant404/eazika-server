@@ -211,6 +211,28 @@ const updateDeliveryProfile = asyncHandler(async (req, res) => {
       )
     );
 });
+const updateAvatar = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { avatar } = req.body;
+
+  // Find delivery
+  const deliveryBoy = await prisma.deliveryBoy.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!deliveryBoy) throw new ApiError(404, "Delivery profile not found");
+
+  // Update
+  const updatedDeliveryBoy = await prisma.deliveryBoy.update({
+    where: { userId: req.user.id },
+    data: { avatar },
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Avatar updated successfully", updatedDeliveryBoy)
+  );
+});
 
 /**
  * Get all orders assigned to delivery boy
@@ -657,5 +679,6 @@ export {
   toggleAvailability,
   getDeliveryProfile,
   getAvailableCities,
-  getDeliveryOrderHistory
+  getDeliveryOrderHistory,
+  updateAvatar
 };

@@ -232,6 +232,7 @@ model DeliveryBoy {
   orders     Order[]
   // rider verification 
   status     String     @default("pending")
+  avatar     String?    @default("") @map("avatar")
 
   @@map("delivery_boys")
 }
