@@ -1161,51 +1161,53 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
       currentPage: string;
       itemsPerPage: string;
     }) || {};
+  // const statusFilter = req.query.status as string
+  const statusFilter = "pending";
+
+  // console.log("Status filter:", statusFilter);
   const currentPage = parseInt(pagination.currentPage || "1");
   const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
   const skip = (currentPage - 1) * itemsPerPage;
+  const baseWhere: any = {
+    orderItems: {
+      some: { product: { shopkeeper: { userId: req.user.id } } },
+    },
+  };
+  if (statusFilter && typeof statusFilter === "string" && statusFilter.length > 0) {
+    baseWhere.status = statusFilter;
+  }
 
-  const allOrders = await prisma.order.findMany({
-    where: {
-      orderItems: {
-        some: { product: { shopkeeper: { userId: req.user.id } } },
+  const [orders, totalCount] = await prisma.$transaction([
+    prisma.order.findMany({
+      where: baseWhere,
+      include: {
+        address: true,
       },
-      status: { in: ["pending", "confirmed", "shipped"] },
-    },
-    include: {
-      orderItems: true,
-      user: { select: { id: true, name: true, phone: true } },
-      address: true,
-    },
-    skip,
-    take: itemsPerPage,
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: itemsPerPage,
+    }),
+    prisma.order.count({
+      where: baseWhere,
+    }),
+  ]);
 
-  const formattedOrders = allOrders.map((o) => {
-    return {
-      id: o.id,
-      userId: o.user.id,
-      name: o.address.name,
-      customerName: o.user.name,
-      createdAt: o.createdAt,
-      address: `${o.address.line1}, ${o.address.city}, ${o.address.state}, ${o.address.pinCode}`,
-      geoLocation: o.address.geoLocation ?? null,
-      itemCount: o.orderItems.length,
-      paymentMethod: o.paymentMethod,
-      status: o.status,
-      totalAmount: o.totalAmount,
-    };
-  });
+  const formattedOrders = orders.map((order) => ({
+    id: order.id,
+    customerName: order.address.name,
+    status: order.status,
+    totalAmount: order.totalAmount,
+    createdAt: order.createdAt,
+  }));
 
   return res.status(200).json(
-    new ApiResponse(200, "Current orders fetched successfully", {
+    new ApiResponse(200, "Orders fetched successfully", {
       orders: formattedOrders,
       pagination: {
         currentPage,
         itemsPerPage,
-        totalItems: formattedOrders.length,
-        totalPages: Math.ceil(formattedOrders.length / itemsPerPage),
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
       },
     })
   );
@@ -1241,6 +1243,7 @@ const getOrderById = asyncHandler(async (req, res) => {
               shopkeeper: {
                 include: {
                   deliveryBoys: {
+                    where: { isVerified: true, status: 'approved', isAvailable: true },
                     include: {
                       user: { select: { id: true, name: true, phone: true } },
                     },
