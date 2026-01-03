@@ -183,17 +183,24 @@ const getProductById = asyncHandler(async (req, res) => {
           address: true,
         },
       },
-      // ratings: { // Uncomment when ratings table is ready
-      //   include: {
-      //     user: {
-      //       select: {
-      //         id: true,
-      //         name: true,
-      //         image: true,
-      //       },
-      //     },
-      //   },
-      // },
+      ratings: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              address: {
+                where: { isDeleted: false },
+                take: 1,
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -202,9 +209,25 @@ const getProductById = asyncHandler(async (req, res) => {
   }
 
   const isGlobal = product.isGlobalProduct;
-  let tatalRating = 0;
-  // Mock ratings until relation exists in schema
-  const ratings = (product as any).ratings || [];
+  let totalRating = 0;
+  const ratings = product.ratings || [];
+
+  // Format ratings with user details and address fallback
+  const formattedRatings = ratings.map((r) => {
+    totalRating += r.rating;
+    const userName =
+      r.user.name || r.user.address?.[0]?.name || "Anonymous User";
+
+    return {
+      id: r.id,
+      userId: r.user.id,
+      userName: userName,
+      userImage: r.user.image,
+      review: r.review,
+      rating: r.rating,
+      createdAt: r.createdAt,
+    };
+  });
 
   const productData = {
     id: product.id,
@@ -242,19 +265,8 @@ const getProductById = asyncHandler(async (req, res) => {
         : null,
     },
     rating: {
-      ratings: ratings.map((r: any) => {
-        tatalRating += r.rating;
-        return {
-          id: r.id,
-          userId: r.user.id,
-          userName: r.user.name,
-          userImage: r.user.image,
-          review: r.review,
-          rating: r.rating,
-          createdAt: r.createdAt,
-        };
-      }),
-      rate: ratings.length > 0 ? tatalRating / ratings.length : 0,
+      ratings: formattedRatings,
+      rate: ratings.length > 0 ? totalRating / ratings.length : 0,
       count: ratings.length,
     },
   };
@@ -831,6 +843,126 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Order cancelled successfully", cancelledOrder));
 });
 
+// Check if user is eligible to rate a product
+const checkRatingEligibility = asyncHandler(async (req, res) => {
+  const { productId } = req.params;
+  const userId = req.user?.id;
+
+  if (!productId || Number.isNaN(Number(productId))) {
+    throw new ApiError(400, "Valid productId is required");
+  }
+
+  // Check if user has purchased and received this product
+  const purchasedProduct = await prisma.orderItem.findFirst({
+    where: {
+      productId: Number(productId),
+      order: {
+        userId: userId,
+        status: "delivered", // Only delivered orders are eligible for rating
+      },
+    },
+    select: {
+      id: true,
+      order: {
+        select: {
+          id: true,
+          deliveredAt: true,
+        },
+      },
+    },
+  });
+
+  const isEligible = purchasedProduct !== null;
+
+  return res.status(200).json(
+    new ApiResponse(200, "Rating eligibility checked", {
+      eligible: isEligible,
+      productId: Number(productId),
+      message: isEligible
+        ? "You can rate this product"
+        : "You must purchase and receive this product before rating",
+      ...(isEligible && {
+        orderId: purchasedProduct?.order?.id,
+        deliveredAt: purchasedProduct?.order?.deliveredAt,
+      }),
+    })
+  );
+});
+
+// Add product rating
+const addProductRating = asyncHandler(async (req, res) => {
+  const { productId } = req.params;
+  const userId = req.user?.id;
+  const { rating, review, } = req.body;
+  // console.log("Adding rating:", { productId, rating, review });
+  if (!productId || Number.isNaN(Number(productId))) {
+    throw new ApiError(400, "Valid productId is required");
+  }
+
+  if (!rating || rating < 1 || rating > 5) {
+    throw new ApiError(400, "Rating must be between 1 and 5");
+  }
+
+  // Verify user has purchased and received this product
+  const purchasedProduct = await prisma.orderItem.findFirst({
+    where: {
+      productId: Number(productId),
+      order: {
+        userId: userId,
+        status: "delivered",
+      },
+    },
+  });
+
+  if (!purchasedProduct) {
+    throw new ApiError(
+      403,
+      "You must purchase and receive this product before rating"
+    );
+  }
+
+  // Check if user already rated this product
+  const existingRating = await prisma.productRating.findFirst({
+    where: {
+      userId: userId,
+      shopProductId: Number(productId),
+    },
+  });
+
+  if (existingRating) {
+    throw new ApiError(400, "You have already rated this product");
+  }
+
+  // Create rating
+  const productRating = await prisma.productRating.create({
+    data: {
+      userId: userId!,
+      shopProductId: Number(productId),
+      rating: Number(rating),
+      review: review || null,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        },
+      },
+      product: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  return res.status(201).json(
+    new ApiResponse(201, "Product rating added successfully", productRating)
+  );
+});
+
 export {
   getProducts,
   getProductById,
@@ -845,4 +977,6 @@ export {
   getOrders,
   trackOrder,
   cancelOrderByCustomer,
+  checkRatingEligibility,
+  addProductRating,
 };
