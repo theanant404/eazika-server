@@ -874,13 +874,26 @@ const checkRatingEligibility = asyncHandler(async (req, res) => {
 
   const isEligible = purchasedProduct !== null;
 
+  // Check if user has already rated this product
+  const existingRating = await prisma.productRating.findFirst({
+    where: {
+      userId: userId,
+      shopProductId: Number(productId),
+    },
+  });
+
+  const hasReviewed = existingRating !== null;
+
   return res.status(200).json(
     new ApiResponse(200, "Rating eligibility checked", {
       eligible: isEligible,
+      hasReviewed: hasReviewed,
       productId: Number(productId),
-      message: isEligible
-        ? "You can rate this product"
-        : "You must purchase and receive this product before rating",
+      message: !isEligible
+        ? "You must purchase and receive this product before rating"
+        : hasReviewed
+          ? "You have already reviewed this product"
+          : "You can rate this product",
       ...(isEligible && {
         orderId: purchasedProduct?.order?.id,
         deliveredAt: purchasedProduct?.order?.deliveredAt,
