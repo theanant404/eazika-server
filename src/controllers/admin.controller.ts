@@ -6,6 +6,85 @@ import {
   globalProductsSchema,
 } from "../validations/product.validation";
 
+/* ################ Shops Overview (Approved & Suspended) ################ */
+const getShopsDetails = asyncHandler(async (req, res) => {
+  // Fetch shops with status approved or suspended
+  const shops = await prisma.shopkeeper.findMany({
+    where: { status: { in: ["approved", "suspended"] } },
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: { select: { id: true, name: true, phone: true, email: true } },
+      address: true,
+    },
+  });
+
+  // Build stats per shop
+  const enriched = await Promise.all(
+    shops.map(async (shop) => {
+      const orderWhere = {
+        orderItems: { some: { product: { shopkeeperId: shop.id } } },
+      } as const;
+
+      const [
+        totalOrders,
+        activeOrders,
+        deliveredAgg,
+        deliveredOrders,
+        customers,
+      ] = await prisma.$transaction([
+        prisma.order.count({ where: orderWhere }),
+        prisma.order.count({
+          where: {
+            ...orderWhere,
+            status: { notIn: ["delivered", "cancelled"] },
+          },
+        }),
+        prisma.order.aggregate({
+          where: { ...orderWhere, status: "delivered" },
+          _sum: { totalAmount: true },
+        }),
+        prisma.order.count({ where: { ...orderWhere, status: "delivered" } }),
+        prisma.order.findMany({
+          where: orderWhere,
+          distinct: ["userId"],
+          select: { userId: true },
+        }),
+      ]);
+
+      const address = shop.address;
+      const location = address
+        ? `${address.line1}, ${address.city}, ${address.state}, ${address.pinCode}`
+        : "";
+
+      return {
+        id: shop.id,
+        name: shop.shopName,
+        category: shop.shopCategory,
+        image: shop.shopImage?.[0] || null,
+        status: shop.status,
+        isActive: shop.isActive,
+        location,
+        contact: {
+          ownerName: shop.user.name,
+          phone: shop.user.phone,
+          email: shop.user.email,
+        },
+        metrics: {
+          totalOrders,
+          totalActiveOrders: activeOrders,
+          totalDeliveredOrders: deliveredOrders,
+          totalEarnings: deliveredAgg._sum.totalAmount || 0,
+          totalCustomers: customers.length,
+        },
+      };
+    })
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Approved and suspended shops fetched", enriched));
+});
+
 /* ################ Dashboard Stats ################ */
 const getDashboardStats = asyncHandler(async (req, res) => {
   const [totalUsers, totalShops, totalOrders, pendingShops, totalRiders, activeRiders] = await prisma.$transaction([
@@ -265,6 +344,7 @@ const toggleShopStatus = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, `Shop ${status} successfully`, shop));
 });
 
+
 const getAllShopAddresses = asyncHandler(async (req, res) => {
   const shops = await prisma.shopkeeper.findMany({
     orderBy: { createdAt: 'desc' },
@@ -467,6 +547,7 @@ export {
   getDashboardStats,
   getAllUsers,
   getAllShops,
+  getShopsDetails,
   getAllShopAddresses,
   verifyShop,
   toggleShopStatus,
@@ -742,3 +823,5 @@ const updateProductCategory = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, "Product category updated successfully", updatedCategory));
 });
+
+
