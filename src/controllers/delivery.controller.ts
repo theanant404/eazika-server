@@ -351,6 +351,82 @@ const getAssignedOrders = asyncHandler(async (req, res) => {
     })
   );
 });
+const getDeliveryOrderHistory = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const skip = (page - 1) * limit;
+
+  // Find delivery boy profile
+  const deliveryBoy = await prisma.deliveryBoy.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!deliveryBoy) {
+    throw new ApiError(404, "Delivery profile not found");
+  }
+
+  // Fetch delivered/cancelled orders with pagination
+  const orders = await prisma.order.findMany({
+    where: {
+      assignedDeliveryBoyId: deliveryBoy.id,
+      status: { in: ["delivered", "cancelled"] },
+    },
+    skip,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+      address: true,
+      orderItems: {
+        include: {
+          product: {
+            include: {
+              globalProduct: true,
+              productCategories: true,
+            },
+          },
+          priceDetails: true,
+        },
+      },
+    },
+  });
+
+  // Get total count for pagination
+  const totalCount = await prisma.order.count({
+    where: {
+      assignedDeliveryBoyId: deliveryBoy.id,
+      status: { in: ["delivered", "cancelled"] },
+    },
+  });
+
+  const formattedOrders = orders.map((order) => {
+    return {
+      id: order.id,
+      customerName: order.user?.name || order.address?.name || "N/A",
+      productPrice: order.totalAmount,
+      status: order.status,
+    };
+  });
+  return res.status(200).json(
+    new ApiResponse(200, "Delivery order history fetched successfully", {
+      orders: formattedOrders,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit),
+      },
+    })
+  );
+});
 
 /**
  * Get nearby shops for delivery partner registration
@@ -580,5 +656,6 @@ export {
   getNearbyShops,
   toggleAvailability,
   getDeliveryProfile,
-  getAvailableCities
+  getAvailableCities,
+  getDeliveryOrderHistory
 };

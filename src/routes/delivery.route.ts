@@ -61,7 +61,12 @@ router.get(
   auth.isDeliveryBoy,
   delivery.getAssignedOrders
 ); // GET /api/v2/delivery/get-assigned-orders - Get all orders assigned to delivery partner (supports status filter)
-
+router.get(
+  "/get-order-history",
+  auth.authMiddleware,
+  auth.isDeliveryBoy,
+  delivery.getDeliveryOrderHistory
+); // GET /api/v2/delivery/get-order-history - Get past delivered/cancelled orders
 router.patch(
   "/update-order-status",
   auth.authMiddleware,
