@@ -48,7 +48,6 @@ router.put(
 router.put(
   "/update-avatar",
   auth.authMiddleware,
-  auth.isDeliveryBoy,
   delivery.updateAvatar
 ); // PUT /api/v2/delivery/update-avatar - Update delivery partner avatar image
 /**
