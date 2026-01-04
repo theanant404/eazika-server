@@ -94,6 +94,7 @@ model User {
   orders            Order[]
   pushNotifications PushNotification[]
   productRatings    ProductRating[]
+  searchTrackings   SearchTracking[]
 
   @@map("users")
 }
@@ -504,4 +505,24 @@ model PushNotificationHistory {
   pushNotification PushNotification @relation(fields: [pushNotificationId], references: [id])
 
   @@map("push_notification_histories")
+}
+
+// * =========================== Search Tracking Model =========================== *
+
+model SearchTracking {
+  id                Int     @id @default(autoincrement())
+  userId            Int?    @map("user_id")
+  searchQuery       String  @map("search_query")
+  location          String?
+  resultsCount      Int     @map("results_count")
+  selectedProductId Int?    @map("selected_product_id")
+  metadata          Json?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("search_trackings")
 }

@@ -57,4 +57,10 @@ router.patch("/products/toggle-global-product-status/:productId", adminControlle
 router.get("/products/shop", adminController.getAllShopProducts);
 router.patch("/products/shop/:id/status", adminController.toggleShopProductStatus);
 
+// --------- Search Tracking Analytics Routes ---------
+router.get("/search-tracking/analytics", adminController.getSearchTrackingAnalytics);
+router.get("/search-tracking/list", adminController.getSearchTrackingList);
+router.delete("/search-tracking/:id", adminController.deleteSearchTracking);
+router.delete("/search-tracking", adminController.deleteAllSearchTracking);
+
 export default router;

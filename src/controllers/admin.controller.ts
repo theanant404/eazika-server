@@ -1327,7 +1327,11 @@ export {
   toggleGlobalProductStatus,
   toggleShopProductStatus,
   updateProductCategory,
-  getShopsPendingVerification
+  getShopsPendingVerification,
+  getSearchTrackingAnalytics,
+  getSearchTrackingList,
+  deleteSearchTracking,
+  deleteAllSearchTracking,
 };
 
 /* ################ Product Management ################ */
@@ -1586,4 +1590,126 @@ const updateProductCategory = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, "Product category updated successfully", updatedCategory));
 });
 
+/* ################ Search Tracking Analytics ################ */
+const getSearchTrackingAnalytics = asyncHandler(async (req, res) => {
+  // Get analytics about search behavior
+  const totalSearches = await prisma.searchTracking.count();
 
+  const uniqueSearchQueries = await prisma.searchTracking.findMany({
+    select: { searchQuery: true },
+    distinct: ["searchQuery"],
+  });
+
+  const topSearches = await prisma.searchTracking.groupBy({
+    by: ["searchQuery"],
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 20,
+  });
+
+  const topSelectedProducts = await prisma.searchTracking.groupBy({
+    by: ["selectedProductId"],
+    _count: { id: true },
+    where: { selectedProductId: { not: null } },
+    orderBy: { _count: { id: "desc" } },
+    take: 10,
+  });
+
+  const searchesByLocation = await prisma.searchTracking.groupBy({
+    by: ["location"],
+    _count: { id: true },
+    where: { location: { not: null } },
+    orderBy: { _count: { id: "desc" } },
+  });
+
+  const avgResultsPerSearch = await prisma.searchTracking.aggregate({
+    _avg: { resultsCount: true },
+  });
+
+  const recentSearches = await prisma.searchTracking.findMany({
+    take: 10,
+    orderBy: { createdAt: "desc" },
+    include: { user: { select: { id: true, name: true, phone: true } } },
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Search tracking analytics fetched", {
+      totalSearches,
+      uniqueSearchQueries: uniqueSearchQueries.length,
+      topSearches,
+      topSelectedProducts,
+      searchesByLocation,
+      averageResultsPerSearch: avgResultsPerSearch._avg.resultsCount || 0,
+      recentSearches,
+    })
+  );
+});
+
+const getSearchTrackingList = asyncHandler(async (req, res) => {
+  const page = parseInt((req.query.page as string) || "1");
+  const limit = parseInt((req.query.limit as string) || "20");
+  const searchQuery = (req.query.search as string) || "";
+  const skip = (page - 1) * limit;
+
+  const whereClause: any = {};
+  if (searchQuery) {
+    whereClause.searchQuery = { contains: searchQuery, mode: "insensitive" };
+  }
+
+  const [searches, totalCount] = await prisma.$transaction([
+    prisma.searchTracking.findMany({
+      where: whereClause,
+      include: {
+        user: { select: { id: true, name: true, phone: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.searchTracking.count({ where: whereClause }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(200, "Search tracking list fetched", {
+      searches,
+      pagination: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    })
+  );
+});
+
+const deleteSearchTracking = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const searchTracking = await prisma.searchTracking.findUnique({
+    where: { id: Number(id) },
+  });
+
+  if (!searchTracking) {
+    throw new ApiError(404, "Search tracking record not found");
+  }
+
+  await prisma.searchTracking.delete({
+    where: { id: Number(id) },
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Search tracking record deleted successfully", null)
+  );
+});
+
+const deleteAllSearchTracking = asyncHandler(async (req, res) => {
+  const result = await prisma.searchTracking.deleteMany({});
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      `${result.count} search tracking records deleted successfully`,
+      { deletedCount: result.count }
+    )
+  );
+});

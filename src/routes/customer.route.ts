@@ -12,6 +12,7 @@ router.get("/products/filter", customer.getProductsByFilter);
 router.get("/products/:productId", customer.getProductById);
 router.get("/products/:productId/rating-eligibility", authMiddleware, customer.checkRatingEligibility);
 router.post("/products/:productId/rating", authMiddleware, customer.addProductRating);
+router.post("/search/track", authMiddleware, customer.trackSearch);
 
 
 /* ---------------------- Cart Management Routes ------------------- */

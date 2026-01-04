@@ -1132,6 +1132,32 @@ const addProductRating = asyncHandler(async (req, res) => {
   );
 });
 
+const trackSearch = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { searchQuery, location, resultsCount, selectedProductId, metadata } =
+    req.body;
+
+  if (!searchQuery) {
+    throw new ApiError(400, "Search query is required");
+  }
+
+  const searchTracking = await prisma.searchTracking.create({
+    data: {
+      userId: req.user.id,
+      searchQuery: searchQuery.trim(),
+      location: location || null,
+      resultsCount: resultsCount || 0,
+      selectedProductId: selectedProductId || null,
+      metadata: metadata || null,
+    },
+  });
+
+  return res.status(201).json(
+    new ApiResponse(201, "Search tracked successfully", searchTracking)
+  );
+});
+
 export {
   getProductCategories,
   getProducts,
@@ -1150,4 +1176,5 @@ export {
   cancelOrderByCustomer,
   checkRatingEligibility,
   addProductRating,
+  trackSearch,
 };
