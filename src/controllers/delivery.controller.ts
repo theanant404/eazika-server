@@ -217,11 +217,11 @@ const updateAvatar = asyncHandler(async (req, res) => {
   const { avatar } = req.body;
 
   // Find delivery
-  const deliveryBoy = await prisma.deliveryBoy.findUnique({
-    where: { userId: req.user.id },
-  });
+  // const deliveryBoy = await prisma.deliveryBoy.findUnique({
+  //   where: { userId: req.user.id },
+  // });
 
-  if (!deliveryBoy) throw new ApiError(404, "Delivery profile not found");
+  // if (!deliveryBoy) throw new ApiError(404, "Delivery profile not found");
 
   // Update
   const updatedDeliveryBoy = await prisma.deliveryBoy.update({
