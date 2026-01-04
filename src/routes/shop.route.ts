@@ -27,6 +27,8 @@ router.get("/delivery-rates", isShopkeeper, shop.getDeliveryRates);
 const product = Router();
 router.get("/get-all-categories", shop.getShopCategories);
 router.get("/get-all-global-product", shop.getGlobalProducts);
+router.get("/products/search-shop-products", shop.searchShopProducts);
+router.get("/products/search-global-products", shop.searchGlobalProducts);
 router.use("/products", isShopkeeper, product); // all product routes require shopkeeper authentication
 product.get("/get-all-categories", shop.getShopCategories);
 product.post("/add-shop-product", shop.addShopProduct);

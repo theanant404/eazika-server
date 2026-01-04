@@ -680,6 +680,210 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
     })
   );
 });
+
+const searchGlobalProducts = asyncHandler(async (req, res) => {
+  const searchQuery = (req.query.search as string || "").trim().toLowerCase();
+
+  const query = req.query as {
+    currentPage?: string;
+    itemsPerPage?: string;
+    page?: string;
+    limit?: string;
+    "pagination[currentPage]"?: string;
+    "pagination[itemsPerPage]"?: string;
+  };
+
+  const parsePage = (value?: string, fallback = 1) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+
+  const currentPage =
+    parsePage(query["pagination[currentPage]"]) ||
+    parsePage(query.currentPage) ||
+    parsePage(query.page);
+  const itemsPerPage =
+    parsePage(query["pagination[itemsPerPage]"], 10) ||
+    parsePage(query.itemsPerPage, 10) ||
+    parsePage(query.limit, 10);
+
+  const skip = (currentPage - 1) * itemsPerPage;
+
+  if (!searchQuery) {
+    return res.status(400).json(
+      new ApiResponse(400, "Search query is required", {
+        products: [],
+        pagination: {
+          currentPage,
+          itemsPerPage,
+          totalItems: 0,
+          totalPages: 0,
+        },
+      })
+    );
+  }
+
+  // Search in product name and category
+  const [globalProducts, totalCount] = await prisma.$transaction([
+    prisma.globalProduct.findMany({
+      where: {
+        OR: [
+          { name: { contains: searchQuery, mode: "insensitive" } },
+          { description: { contains: searchQuery, mode: "insensitive" } },
+          { brand: { contains: searchQuery, mode: "insensitive" } },
+          { productCategories: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ],
+      },
+      include: { productCategories: true },
+      skip,
+      take: itemsPerPage,
+    }),
+    prisma.globalProduct.count({
+      where: {
+        OR: [
+          { name: { contains: searchQuery, mode: "insensitive" } },
+          { description: { contains: searchQuery, mode: "insensitive" } },
+          { brand: { contains: searchQuery, mode: "insensitive" } },
+          { productCategories: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ],
+      },
+    }),
+  ]);
+
+  const formattedProducts = globalProducts.map((p) => ({
+    id: p.id,
+    category: p.productCategories?.name ?? null,
+    brand: p.brand,
+    name: p.name,
+    description: p.description,
+    images: p.images,
+    isActive: p.isActive,
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Global products search results", {
+      products: formattedProducts,
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
+      },
+    })
+  );
+});
+
+const searchShopProducts = asyncHandler(async (req, res) => {
+  const searchQuery = (req.query.search as string || "").trim().toLowerCase();
+
+  const query = req.query as {
+    currentPage?: string;
+    itemsPerPage?: string;
+    page?: string;
+    limit?: string;
+    "pagination[currentPage]"?: string;
+    "pagination[itemsPerPage]"?: string;
+  };
+
+  const parsePage = (value?: string, fallback = 1) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+
+  const currentPage =
+    parsePage(query["pagination[currentPage]"]) ||
+    parsePage(query.currentPage) ||
+    parsePage(query.page);
+  const itemsPerPage =
+    parsePage(query["pagination[itemsPerPage]"], 10) ||
+    parsePage(query.itemsPerPage, 10) ||
+    parsePage(query.limit, 10);
+
+  const skip = (currentPage - 1) * itemsPerPage;
+
+  if (!searchQuery) {
+    return res.status(400).json(
+      new ApiResponse(400, "Search query is required", {
+        products: [],
+        pagination: {
+          currentPage,
+          itemsPerPage,
+          totalItems: 0,
+          totalPages: 0,
+        },
+      })
+    );
+  }
+
+  // Search in product name, category, brand, and description
+  const [shopProducts, totalCount] = await prisma.$transaction([
+    prisma.shopProduct.findMany({
+      where: {
+        OR: [
+          { name: { contains: searchQuery, mode: "insensitive" } },
+          { description: { contains: searchQuery, mode: "insensitive" } },
+          { brand: { contains: searchQuery, mode: "insensitive" } },
+          { productCategories: { name: { contains: searchQuery, mode: "insensitive" } } },
+          { globalProduct: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ],
+      },
+      include: {
+        prices: true,
+        productCategories: true,
+        ratings: true,
+        globalProduct: true,
+      },
+      skip,
+      take: itemsPerPage,
+    }),
+    prisma.shopProduct.count({
+      where: {
+        OR: [
+          { name: { contains: searchQuery, mode: "insensitive" } },
+          { description: { contains: searchQuery, mode: "insensitive" } },
+          { brand: { contains: searchQuery, mode: "insensitive" } },
+          { productCategories: { name: { contains: searchQuery, mode: "insensitive" } } },
+          { globalProduct: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ],
+      },
+    }),
+  ]);
+
+  const formattedProducts = shopProducts.map((p) => ({
+    id: p.id,
+    shopkeeperId: p.shopkeeperId,
+    category: p.productCategories?.name ?? null,
+    brand: p.brand,
+    name: p.name,
+    description: p.description,
+    images: p.images,
+    stock: p.stock,
+    isActive: p.isActive,
+    isGlobalProduct: p.isGlobalProduct,
+    globalProductId: p.globalProductId,
+    prices: p.prices,
+    rating: {
+      average:
+        p.ratings.length > 0
+          ? p.ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / p.ratings.length
+          : 0,
+      count: p.ratings.length,
+    },
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Shop products search results", {
+      products: formattedProducts,
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems: totalCount,
+        totalPages: Math.ceil(totalCount / itemsPerPage),
+      },
+    })
+  );
+});
+
 const getShopCategories = asyncHandler(async (req, res) => {
   // Fetch distinct shop categories from shopkeeper profiles
   const categories = await prisma.productCategory.findMany({
@@ -1870,6 +2074,8 @@ export {
   getShopCategories,
   getShopProducts,
   getGlobalProducts,
+  searchGlobalProducts,
+  searchShopProducts,
   addShopGlobalProduct,
   addShopProduct,
   updateShopProductStatus,
