@@ -7,7 +7,7 @@ function setPhoneOtpDataOnRedis(
 ): Promise<string | null> {
   const key = `phone_otp:${OtpData.requestId}`;
   const value = JSON.stringify(OtpData);
-  return redis.set(key, value, { EX: expireIn });
+  return redis.set(key, value, { EX: expireIn }) as Promise<string | null>;
 }
 
 async function getPhoneOtpByRequestId(
@@ -16,7 +16,7 @@ async function getPhoneOtpByRequestId(
   const key = `phone_otp:${requestId}`;
   const data = await redis.get(key);
   if (!data) return null;
-  return JSON.parse(data) as PhoneOtpInterface;
+  return JSON.parse(data as string) as PhoneOtpInterface;
 }
 
 async function incrementOtpAttempts(requestId: string) {
@@ -26,7 +26,7 @@ async function incrementOtpAttempts(requestId: string) {
     .get(key)
     .then((data) => {
       if (!data) return null;
-      const otpData = JSON.parse(data) as PhoneOtpInterface;
+      const otpData = JSON.parse(data as string) as PhoneOtpInterface;
       otpData.attempts += 1;
       // update the data back to redis
       return redis.set(key, JSON.stringify(otpData), { EX: expireIn });
@@ -44,7 +44,7 @@ async function markOtpAsUsed(requestId: string): Promise<string | null> {
     .get(key)
     .then((data) => {
       if (!data) return null;
-      const otpData = JSON.parse(data) as PhoneOtpInterface;
+      const otpData = JSON.parse(data as string) as PhoneOtpInterface;
       otpData.used = true;
       // update the data back to redis
       return redis.set(key, JSON.stringify(otpData), { EX: expireIn });
@@ -57,7 +57,7 @@ async function markOtpAsUsed(requestId: string): Promise<string | null> {
 
 function deletePhoneOtpByRequestId(requestId: string): Promise<number> {
   const key = `phone_otp:${requestId}`;
-  return redis.del(key);
+  return redis.del(key) as Promise<number>;
 }
 
 export {

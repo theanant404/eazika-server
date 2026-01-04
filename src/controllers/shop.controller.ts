@@ -630,8 +630,8 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
   // 3. Return products with pagination info
   const pagination =
     (req.query.pagination as {
-      currentPage: string;
-      itemsPerPage: string;
+      currentPage?: string;
+      itemsPerPage?: string;
     }) || {};
   const currentPage = parseInt(pagination.currentPage || "1");
   const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
@@ -960,7 +960,7 @@ const updateShopProduct = asyncHandler(async (req, res) => {
   const updateData: any = {};
   const isGlobal = !!product.isGlobalProduct;
 
-  const incoming = product || {};
+  const incoming = (product as any) || {};
   if (!isGlobal) {
     if (name || incoming.name) updateData.name = name || incoming.name;
     if (brand || incoming.brand) updateData.brand = brand || incoming.brand;
@@ -1159,8 +1159,8 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
 
   const pagination =
     (req.query.pagination as {
-      currentPage: string;
-      itemsPerPage: string;
+      currentPage?: string;
+      itemsPerPage?: string;
     }) || {};
   // const statusFilter = req.query.status as string
   const statusFilter: OrderStatus[] = ["pending", "confirmed", "shipped"] as const;
@@ -1224,8 +1224,8 @@ const getOrders = asyncHandler(async (req, res) => {
 
   const pagination =
     (req.query.pagination as {
-      currentPage: string;
-      itemsPerPage: string;
+      currentPage?: string;
+      itemsPerPage?: string;
     }) || {};
 
   // Get filter from query parameter, default to "all"

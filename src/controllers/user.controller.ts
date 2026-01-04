@@ -47,7 +47,7 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
     userSchemas.verifyRegistrationOtpSchema.parse(req.body);
 
   const result = await verifyOtp(phone, requestId, otp);
-  if (!result.ok) throw new ApiError(400, result.reason);
+  if (!result.ok) throw new ApiError(400, (result as any).reason);
 
   let phoneOtpData = await redis.getPhoneOtpByRequestId(requestId);
   if (!phoneOtpData) throw new ApiError(500, "otp_data_not_found");
@@ -129,7 +129,7 @@ const verifyLoginOtp = asyncHandler(async (req, res) => {
     userSchemas.verifyRegistrationOtpSchema.parse(req.body);
 
   const result = await verifyOtp(phone, requestId, otp);
-  if (!result.ok) throw new ApiError(400, result.reason);
+  if (!result.ok) throw new ApiError(400, (result as any).reason);
 
   let phoneOtpData = await redis.getPhoneOtpByRequestId(requestId);
   if (!phoneOtpData) throw new ApiError(500, "otp_data_not_found");

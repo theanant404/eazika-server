@@ -166,8 +166,8 @@ const getProducts = asyncHandler(async (req, res) => {
   // 1. Pagination Setup
   const pagination =
     (req.query.pagination as {
-      currentPage: string;
-      itemsPerPage: string;
+      currentPage?: string;
+      itemsPerPage?: string;
     }) || {};
   const currentPage = parseInt(
     pagination.currentPage || (req.query.page as string) || "1"

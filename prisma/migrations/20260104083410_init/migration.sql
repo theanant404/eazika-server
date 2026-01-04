@@ -71,12 +71,47 @@ CREATE TABLE "shopkeepers" (
     "shop_images" TEXT[],
     "fssai_number" TEXT,
     "gst_number" TEXT,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
     "deactivated_at" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'pending',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "shopkeepers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "shop_schedules" (
+    "id" SERIAL NOT NULL,
+    "shopkeeper_id" INTEGER NOT NULL,
+    "is_online_delivery" BOOLEAN NOT NULL DEFAULT false,
+    "weekly_slots" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "shop_schedules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "shop_min_orders" (
+    "id" SERIAL NOT NULL,
+    "shopkeeper_id" INTEGER NOT NULL,
+    "minimum_order_value" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "shop_min_orders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "shop_delivery_rates" (
+    "id" SERIAL NOT NULL,
+    "shopkeeper_id" INTEGER NOT NULL,
+    "delivery_rates" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "shop_delivery_rates_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -98,6 +133,8 @@ CREATE TABLE "delivery_boys" (
     "last_location_update" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "avatar" TEXT DEFAULT '',
 
     CONSTRAINT "delivery_boys_pkey" PRIMARY KEY ("id")
 );
@@ -153,7 +190,6 @@ CREATE TABLE "global_products" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "images" TEXT[],
-    "product_pricing" INTEGER[],
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -244,8 +280,11 @@ CREATE TABLE "orders" (
     "cancel_by" "CancelBy",
     "cancel_reason" TEXT,
     "order_status" "OrderStatus" NOT NULL DEFAULT 'pending',
+    "delivery_otp" INTEGER DEFAULT 4829,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "rider_assigned_at" TIMESTAMP(3),
+    "delivered_at" TIMESTAMP(3),
 
     CONSTRAINT "orders_pkey" PRIMARY KEY ("id")
 );
@@ -330,6 +369,15 @@ CREATE UNIQUE INDEX "shopkeepers_fssai_number_key" ON "shopkeepers"("fssai_numbe
 CREATE UNIQUE INDEX "shopkeepers_gst_number_key" ON "shopkeepers"("gst_number");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "shop_schedules_shopkeeper_id_key" ON "shop_schedules"("shopkeeper_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "shop_min_orders_shopkeeper_id_key" ON "shop_min_orders"("shopkeeper_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "shop_delivery_rates_shopkeeper_id_key" ON "shop_delivery_rates"("shopkeeper_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "delivery_boys_user_id_key" ON "delivery_boys"("user_id");
 
 -- CreateIndex
@@ -367,6 +415,15 @@ ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_document_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "shopkeepers" ADD CONSTRAINT "shopkeepers_bank_detail_id_fkey" FOREIGN KEY ("bank_detail_id") REFERENCES "bank_details"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shop_schedules" ADD CONSTRAINT "shop_schedules_shopkeeper_id_fkey" FOREIGN KEY ("shopkeeper_id") REFERENCES "shopkeepers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shop_min_orders" ADD CONSTRAINT "shop_min_orders_shopkeeper_id_fkey" FOREIGN KEY ("shopkeeper_id") REFERENCES "shopkeepers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shop_delivery_rates" ADD CONSTRAINT "shop_delivery_rates_shopkeeper_id_fkey" FOREIGN KEY ("shopkeeper_id") REFERENCES "shopkeepers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "delivery_boys" ADD CONSTRAINT "delivery_boys_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -426,7 +483,7 @@ ALTER TABLE "orders" ADD CONSTRAINT "orders_address_id_fkey" FOREIGN KEY ("addre
 ALTER TABLE "orders" ADD CONSTRAINT "orders_assigned_delivery_boy_id_fkey" FOREIGN KEY ("assigned_delivery_boy_id") REFERENCES "delivery_boys"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "push_notifications" ADD CONSTRAINT "push_notifications_id_fkey" FOREIGN KEY ("id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "push_notifications" ADD CONSTRAINT "push_notifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "push_notification_histories" ADD CONSTRAINT "push_notification_histories_push_notification_id_fkey" FOREIGN KEY ("push_notification_id") REFERENCES "push_notifications"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

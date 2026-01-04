@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient, Prisma } from "../src/generated/prisma/client";
 const prisma = new PrismaClient();
 import { globalProductList as globalProducts } from "./globalProductList";
