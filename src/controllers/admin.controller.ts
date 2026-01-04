@@ -1111,6 +1111,7 @@ const createGlobalProductsBulk = asyncHandler(async (req, res) => {
 
 // Upload products from JSON file (eaz_products.json) one by one
 const uploadProductsFromJson = asyncHandler(async (req, res) => {
+  console.log("Starting upload of products from JSON file...");
   try {
     // Read the JSON file from project root
     const jsonFilePath = path.join(process.cwd(), "eaz_products.json");
@@ -1145,7 +1146,7 @@ const uploadProductsFromJson = asyncHandler(async (req, res) => {
         }
 
         // Get category ID from JSON (catogery field)
-        const categoryId = product.catogery ? Number(product.catogery) : null;
+        const categoryId = product.productCategoryId ? Number(product.productCategoryId) : null;
 
         // Check if category exists
         if (categoryId) {
@@ -1184,7 +1185,7 @@ const uploadProductsFromJson = asyncHandler(async (req, res) => {
         });
       }
     }
-
+    console.log(`Upload completed: ${successCount} succeeded, ${failedCount} failed.`);
     // Return response with summary
     return res.status(200).json(
       new ApiResponse(200, "Products uploaded from JSON file", {

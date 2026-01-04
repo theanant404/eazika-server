@@ -624,24 +624,34 @@ const getShopProducts = asyncHandler(async (req, res) => {
 });
 
 const getGlobalProducts = asyncHandler(async (req, res) => {
-  // write steps to get all global products with pagination
-  // 1. Parse pagination params from query
-  // 2. Fetch global products from DB with pagination
-  // 3. Return products with pagination info
-  const pagination =
-    (req.query.pagination as {
-      currentPage?: string;
-      itemsPerPage?: string;
-    }) || {};
-  const currentPage = parseInt(pagination.currentPage || "1");
-  const itemsPerPage = parseInt(pagination.itemsPerPage || "10");
+  const query = req.query as {
+    currentPage?: string;
+    itemsPerPage?: string;
+    page?: string;
+    limit?: string;
+    "pagination[currentPage]"?: string;
+    "pagination[itemsPerPage]"?: string;
+  };
+
+  const parsePage = (value?: string, fallback = 1) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+
+  const currentPage =
+    parsePage(query["pagination[currentPage]"]) ||
+    parsePage(query.currentPage) ||
+    parsePage(query.page);
+  const itemsPerPage =
+    parsePage(query["pagination[itemsPerPage]"], 10) ||
+    parsePage(query.itemsPerPage, 10) ||
+    parsePage(query.limit, 10);
+
   const skip = (currentPage - 1) * itemsPerPage;
 
   const [globalProducts, totalCount] = await prisma.$transaction([
     prisma.globalProduct.findMany({
-      include: {
-        productCategories: true,
-      },
+      include: { productCategories: true },
       skip,
       take: itemsPerPage,
     }),
@@ -650,7 +660,7 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
 
   const formattedProducts = globalProducts.map((p) => ({
     id: p.id,
-    category: p.productCategories.name,
+    category: p.productCategories?.name ?? null,
     brand: p.brand,
     name: p.name,
     description: p.description,
@@ -660,7 +670,7 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, "Global products fetched successfully", {
-      globalProducts: formattedProducts,
+      products: formattedProducts,
       pagination: {
         currentPage,
         itemsPerPage,
@@ -670,7 +680,6 @@ const getGlobalProducts = asyncHandler(async (req, res) => {
     })
   );
 });
-
 const getShopCategories = asyncHandler(async (req, res) => {
   // Fetch distinct shop categories from shopkeeper profiles
   const categories = await prisma.productCategory.findMany({
