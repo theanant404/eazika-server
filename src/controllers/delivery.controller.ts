@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler";
 import prisma from "../config/db.config";
 import { ApiError, ApiResponse } from "../utils/apiHandler";
+import { success } from "zod";
 
 /**
  * Create delivery boy profile
@@ -215,7 +216,10 @@ const updateAvatar = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const { avatar } = req.body;
-
+  console.log('uploaded avatar:', avatar);
+  if (!avatar) {
+    throw new ApiError(400, "Avatar image URL is required");
+  }
   // Find delivery
   const deliveryBoy = await prisma.deliveryBoy.findUnique({
     where: { userId: req.user.id },
@@ -544,7 +548,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
   const { orderId, status, otp } = req.body;
-
+  console.log(orderId, status, otp)
   if (!['shipped', 'delivered', 'cancelled'].includes(status)) {
     throw new ApiError(400, "Invalid status");
   }
@@ -560,19 +564,21 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId }
   });
-
   if (!order) throw new ApiError(404, "Order not found");
   if (order.assignedDeliveryBoyId !== deliveryBoy.id) {
     throw new ApiError(403, "Order not assigned to you");
   }
+  // console.log("Current order status:", order.deliveryOtp);
   // If delivering, verify OTP
   if (order.deliveryOtp !== otp) {
+    // console.log("Provided OTP:", otp, "Expected OTP:", order.deliveryOtp);
     throw new ApiError(400, "Invalid OTP");
   }
+
   // Update
   const updateData: any = {
     status: "delivered",
-    deliveredAt: Date.now()
+    deliveredAt: new Date()
   };
 
   const updatedOrder = await prisma.order.update({

@@ -22,7 +22,7 @@ export async function getSignedUrl(req: Request, res: Response) {
     );
     const publicUrl = getPublicUrl(bucketName, fileName);
 
-    console.log("Generated signed URL:", url);
+    // console.log("Generated signed URL:", url);
     res.json({
       signedUrl: url,
       publicUrl: publicUrl,
