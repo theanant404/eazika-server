@@ -655,7 +655,7 @@ const getDeliveryProfile = asyncHandler(async (req, res) => {
     where: { userId: req.user.id },
     include: {
       user: { select: { name: true, phone: true } },
-      shopkeeper: { select: { shopName: true } }
+      shopkeeper: { select: { shopName: true ,shopImage: true,shopCategory:true,address:true} }
     }
   });
 
