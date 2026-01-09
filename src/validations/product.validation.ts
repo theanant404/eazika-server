@@ -121,6 +121,8 @@ export const createOrderSchema = zod.object({
     ["cash_on_delivery", "online_payment"],
     "Invalid payment method"
   ),
+  deliveryFee: zod.number().min(0, "Delivery fee cannot be negative").optional(),
+  totalAmount: zod.number().min(0, "Total amount cannot be negative").optional(),
   orderItems: zod.array(
     zod.object({
       productId: zod.number(),

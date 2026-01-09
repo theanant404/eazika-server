@@ -656,9 +656,11 @@ const clearCart = asyncHandler(async (req, res) => {
 /* ================================= Customer Order Controllers ============================ */
 
 const createOrder = asyncHandler(async (req, res) => {
-  const { addressId, orderItems, paymentMethod } = createOrderSchema.parse(
+  // console.log("Creating order with data:", req.body);
+  const { addressId, orderItems, paymentMethod, deliveryFee, totalAmount, } = createOrderSchema.parse(
     req.body
   );
+
 
   // Generate a 4-digit delivery OTP for the order
   const deliveryOtp = Math.floor(1000 + Math.random() * 9000);
@@ -718,7 +720,12 @@ const createOrder = asyncHandler(async (req, res) => {
         // The previous query `include: { prices: ... }` ensures `priceDetails` is associated with `prod`.
 
         const amount = priceDetails.price;
-        totalAmount += amount * item.quantity;
+        const discount = priceDetails.discount || 0;
+        const finalPrice = amount - discount;
+        totalAmount += finalPrice * item.quantity;
+        if (deliveryFee) {
+          totalAmount = totalAmount + parseInt(String(deliveryFee));
+        }
 
         items.push({
           productId: pId,
