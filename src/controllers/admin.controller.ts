@@ -1576,16 +1576,23 @@ const getLiveMapData = asyncHandler(async (req, res) => {
 });
 const updateProductCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, description } = req.body;
-
+  const { name, description, image } = req.body;
+  // console.log("Updating product category:", { id, name, description, image });
   if (!name || name.length < 2 || name.length > 100) {
     throw new ApiError(400, "Product category name must be between 2 and 100 characters long");
   }
 
+  // Build the data object, only include image if imageUrl is provided
+  const updateData: any = { name, description, };
+  if (image && typeof image === 'string' && image.trim()) {
+    updateData.image = image.trim();
+  }
+  // console.log("updateData:", updateData);
   const updatedCategory = await prisma.productCategory.update({
     where: { id: Number(id) },
-    data: { name, description },
+    data: updateData,
   });
+  // console.log("updatedCategory:", updatedCategory);
 
   res.status(200).json(new ApiResponse(200, "Product category updated successfully", updatedCategory));
 });
