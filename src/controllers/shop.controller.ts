@@ -1409,6 +1409,7 @@ const getCurrentOrders = asyncHandler(async (req, res) => {
   const formattedOrders = orders.map((order) => ({
     id: order.id,
     customerName: order.address.name,
+    phoneNumber: order.address.phone,
     status: order.status,
     totalAmount: order.totalAmount,
     createdAt: order.createdAt,
