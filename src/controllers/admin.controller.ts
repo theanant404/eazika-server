@@ -1038,7 +1038,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 });
 /* ################ Products Controllers ################ */
 const createProductCategory = asyncHandler(async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, image } = req.body;
   if (!name || name.length < 2 || name.length > 100) {
     throw new ApiError(
       400,
@@ -1046,7 +1046,7 @@ const createProductCategory = asyncHandler(async (req, res) => {
     );
   }
   const createdCategory = await prisma.productCategory.create({
-    data: { name, description },
+    data: { name, description, image },
   });
   res.status(201).json(
     new ApiResponse(201, "Product category created successfully", {
