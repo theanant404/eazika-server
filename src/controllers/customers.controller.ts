@@ -21,7 +21,9 @@ const getProductCategories = asyncHandler(async (_req, res) => {
 // Get products by filter (supports "all" or numeric category id via filter, plus legacy modes)
 const getProductsByFilter = asyncHandler(async (req, res) => {
   const rawFilter = (req.query.filter as string) || "all";
-  console.log(rawFilter)
+  // console.log(rawFilter)
+  const city = req.query.city as string | undefined;
+
   const filter = rawFilter.toLowerCase();
   const page = parseInt((req.query.page as string) || "1");
   const limit = parseInt((req.query.limit as string) || "10");
@@ -29,6 +31,16 @@ const getProductsByFilter = asyncHandler(async (req, res) => {
 
   let whereClause: any = { isActive: true };
   let appliedFilter = filter;
+  const trimmedCity = city ? city.trim() : undefined;
+
+  if (trimmedCity) {
+    whereClause.shopkeeper = {
+      address: {
+        city: { equals: trimmedCity, mode: "insensitive" },
+        isDeleted: false,
+      },
+    };
+  }
 
   // If filter is a numeric value, treat it as category id (quick path)
   const numericFilter = Number(rawFilter);
