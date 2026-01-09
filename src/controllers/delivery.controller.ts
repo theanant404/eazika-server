@@ -571,7 +571,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   }
   // Update
   const updateData: any = {
-    status,
+    status: "delivered",
     deliveredAt: Date.now()
   };
 
