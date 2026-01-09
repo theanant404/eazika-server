@@ -9,7 +9,7 @@ import { Prisma } from "../generated/prisma/client";
 // Get all product categories
 const getProductCategories = asyncHandler(async (_req, res) => {
   const categories = await prisma.productCategory.findMany({
-    select: { id: true, name: true },
+    select: { id: true, name: true, image: true },
     orderBy: { name: "asc" },
   });
 
