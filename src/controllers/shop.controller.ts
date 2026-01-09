@@ -1795,6 +1795,7 @@ const suspendRider = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, "Rider suspended", updated));
 });
+
 const getRiderAnalytics = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, "User not authenticated");
 
@@ -1803,7 +1804,6 @@ const getRiderAnalytics = asyncHandler(async (req, res) => {
   });
 
   if (!shopkeeper) throw new ApiError(404, "Shop not found");
-
   const range = ((req.query.range as string) || "all").toLowerCase();
 
   const buildDateFilter = () => {
@@ -2050,6 +2050,231 @@ const getShopAnalytics = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Analytics fetched", analyticsData));
 });
 
+/**
+ * Get Detailed Analytics for a Specific Rider
+ * Includes: total orders, delivered, cancelled, ratings, order history, daily stats, documents, contact details, avg delivery time
+ */
+const getRiderDetailedAnalytics = asyncHandler(async (req, res) => {
+  if (!req.user) throw new ApiError(401, "User not authenticated");
+
+  const { riderId } = req.params;
+  const riderIdNum = Number(riderId);
+
+  if (!riderIdNum) throw new ApiError(400, "Valid riderId is required");
+
+  // Verify shopkeeper and that rider belongs to them
+  const shopkeeper = await prisma.shopkeeper.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!shopkeeper) throw new ApiError(404, "Shop not found");
+
+  const rider = await prisma.deliveryBoy.findUnique({
+    where: { id: riderIdNum },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          image: true,
+        },
+      },
+    },
+  });
+
+  if (!rider) throw new ApiError(404, "Rider not found");
+  if (rider.shopkeeperId !== shopkeeper.id)
+    throw new ApiError(403, "Rider does not belong to your shop");
+
+  // Fetch all orders assigned to this rider
+  const allOrders = await prisma.order.findMany({
+    where: { assignedDeliveryBoyId: riderIdNum },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          image: true,
+        },
+      },
+      address: true,
+      orderItems: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Calculate metrics
+  const totalOrders = allOrders.length;
+  const ordersAccepted = allOrders.filter((o) => o.status !== "pending").length;
+  const deliveredOrders = allOrders.filter((o) => o.status === "delivered");
+  const cancelledOrders = allOrders.filter((o) => o.status === "cancelled");
+
+  // Get ratings for the rider
+  const riderRatings = await prisma.order.findMany({
+    where: {
+      assignedDeliveryBoyId: riderIdNum,
+      status: "delivered",
+      // riderRating: { not: null },
+    },
+    // select: {
+    //   riderRating: true,
+    // },
+  });
+
+  // const avgRating =
+  //   riderRatings.length > 0
+  //     ? riderRatings.reduce((sum, r) => sum + (r.riderRating || 0), 0) /
+  //       riderRatings.length
+  //     : 0;
+  const avgRating = 0;
+  // Calculate average delivery time (in hours)
+  const ordersWithDeliveryTime = allOrders.filter(
+    (o) => o.riderAssignedAt && o.deliveredAt
+  );
+
+  const avgDeliveryTimeMs =
+    ordersWithDeliveryTime.length > 0
+      ? ordersWithDeliveryTime.reduce((sum, o) => {
+        const diff =
+          new Date(o.deliveredAt!).getTime() -
+          new Date(o.riderAssignedAt!).getTime();
+        return sum + diff;
+      }, 0) / ordersWithDeliveryTime.length
+      : 0;
+
+  const avgDeliveryTimeHours = Math.round(avgDeliveryTimeMs / (1000 * 60 * 60) * 100) / 100;
+
+  // Daily order stats for graph (last 30 days starting from today)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dailyStats: {
+    [key: string]: { completed: number; cancelled: number; orderValue: number };
+  } = {};
+
+  // Initialize daily stats for the last 30 days starting from today
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i); // Go backwards from today
+    const dateStr = date.toISOString().split("T")[0];
+    dailyStats[dateStr] = { completed: 0, cancelled: 0, orderValue: 0 };
+  }
+
+  // Populate delivered orders into daily stats
+  // Use updatedAt if deliveredAt is not available
+  deliveredOrders.forEach((order) => {
+    const dateToUse = order.deliveredAt || order.updatedAt;
+    const deliveredDate = new Date(dateToUse);
+    deliveredDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    const dateStr = deliveredDate.toISOString().split("T")[0];
+
+    // Check if date is within our 30-day window
+    if (dailyStats[dateStr]) {
+      dailyStats[dateStr].completed += 1;
+      dailyStats[dateStr].orderValue += order.totalAmount;
+    }
+  });
+
+  // Populate cancelled orders into daily stats
+  cancelledOrders.forEach((order) => {
+    const cancelledDate = new Date(order.updatedAt);
+    cancelledDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    const dateStr = cancelledDate.toISOString().split("T")[0];
+
+    // Check if date is within our 30-day window
+    if (dailyStats[dateStr]) {
+      dailyStats[dateStr].cancelled += 1;
+    }
+  });
+
+  // Format daily stats as array, sorted by date
+  const dailyStatsArray = Object.entries(dailyStats)
+    .map(([date, stats]) => ({
+      date,
+      ...stats,
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Document details
+  const documentDetails = {
+    aadharNumber: rider.aadharNumber,
+    panNumber: rider.panNumber,
+    licenseNumber: rider.licenseNumber,
+    licenseImages: rider.licenseImage,
+    vehicleNo: rider.vehicleNo,
+    vehicleName: rider.vehicleName,
+    vehicleOwnerName: rider.vehicleOwnerName,
+  };
+
+  // Order history (detailed)
+  const orderHistory = allOrders.map((order) => ({
+    id: order.id,
+    orderNo: `ORD-${order.id}`,
+    status: order.status,
+    totalAmount: order.totalAmount,
+    totalProducts: order.totalProducts,
+    paymentMethod: order.paymentMethod,
+    customerName: order.user?.name || "N/A",
+    customerPhone: order.user?.phone || "N/A",
+    deliveryAddress: order.address
+      ? `${order.address.line1}, ${order.address.city}`
+      : "N/A",
+    createdAt: order.createdAt,
+    riderAssignedAt: order.riderAssignedAt,
+    deliveredAt: order.deliveredAt,
+    // riderRating: order.riderRating,
+    itemCount: order.orderItems.length,
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Rider detailed analytics fetched", {
+      riderInfo: {
+        id: rider.id,
+        name: rider.user.name,
+        phone: rider.user.phone,
+        email: rider.user.email,
+        avatar: rider.avatar,
+        userImage: rider.user.image,
+        vehicleNo: rider.vehicleNo,
+        isAvailable: rider.isAvailable,
+      },
+      documentDetails,
+      contactDetails: {
+        name: rider.user.name,
+        phone: rider.user.phone,
+        email: rider.user.email,
+        image: rider.user.image,
+      },
+      metrics: {
+        totalOrders,
+        ordersAccepted,
+        deliveredCount: deliveredOrders.length,
+        cancelledCount: cancelledOrders.length,
+        averageRating: parseFloat(avgRating.toFixed(2)),
+        ratingCount: riderRatings.length,
+        averageDeliveryTimeHours: avgDeliveryTimeHours,
+      },
+      earnings: {
+        totalEarnings: deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+        deliveredOrderValue: deliveredOrders.reduce(
+          (sum, o) => sum + o.totalAmount,
+          0
+        ),
+      },
+      graphData: {
+        daily: dailyStatsArray,
+      },
+      orderHistory: {
+        count: orderHistory.length,
+        orders: orderHistory,
+      },
+    })
+  );
+});
+
 /* ********************************************* Exports Controllers ********************************************* */
 
 // Shop Management Controllers
@@ -2089,7 +2314,7 @@ export {
 export { getCurrentOrders, getOrderById, updateOrderStatus, getOrders };
 
 // Shop Controllers for Riders
-export { getShopRiders, approveRider, rejectRider, getRiderAnalytics };
+export { getShopRiders, approveRider, rejectRider, getRiderAnalytics, getRiderDetailedAnalytics };
 
 // other controllers
 // export { getUserByPhone, sendInviteToDeliveryPartner };

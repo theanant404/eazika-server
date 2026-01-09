@@ -67,5 +67,6 @@ router.patch("/toggle-rider-status", isShopkeeper, shop.approveRider);
 router.delete("/reject-rider/:riderId", isShopkeeper, shop.rejectRider);
 router.patch("/suspend-rider", isShopkeeper, shop.suspendRider);
 router.get("/riders/analytics", isShopkeeper, shop.getRiderAnalytics);
+router.get("/riders/:riderId/analytics", isShopkeeper, shop.getRiderDetailedAnalytics);
 
 export default router;
