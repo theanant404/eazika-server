@@ -236,6 +236,7 @@ CREATE TABLE "product_categories" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
+    "image" TEXT NOT NULL DEFAULT 'https://brandmarketplace.ca/product/dummy-product/',
 
     CONSTRAINT "product_categories_pkey" PRIMARY KEY ("id")
 );
@@ -345,6 +346,20 @@ CREATE TABLE "push_notification_histories" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "push_notification_histories_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "search_trackings" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER,
+    "search_query" TEXT NOT NULL,
+    "location" TEXT,
+    "results_count" INTEGER NOT NULL,
+    "selected_product_id" INTEGER,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "search_trackings_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -487,3 +502,6 @@ ALTER TABLE "push_notifications" ADD CONSTRAINT "push_notifications_user_id_fkey
 
 -- AddForeignKey
 ALTER TABLE "push_notification_histories" ADD CONSTRAINT "push_notification_histories_push_notification_id_fkey" FOREIGN KEY ("push_notification_id") REFERENCES "push_notifications"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "search_trackings" ADD CONSTRAINT "search_trackings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

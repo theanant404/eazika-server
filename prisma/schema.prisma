@@ -367,10 +367,10 @@ model ProductRating {
 }
 
 model ProductCategory {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
-
+  id            Int             @id @default(autoincrement())
+  name          String          @unique
+  description   String?
+  image         String          @default("https://brandmarketplace.ca/product/dummy-product/")
   // Relations
   shopProduct   ShopProduct[]
   globalProduct GlobalProduct[]
